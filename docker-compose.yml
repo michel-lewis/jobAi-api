@@ -1,0 +1,33 @@
+name: job-ai
+
+services:
+  database:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SECRET}
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h localhost -U $$POSTGRES_USER -d $$POSTGRES_DB',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:8.10.1
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6379:6379'
+
+volumes:
+  pg_data:

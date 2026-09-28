@@ -1,0 +1,64 @@
+{
+  "categories": { "correctness": "error" },
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/crates/oxc_linter/src/rules.rs",
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-floating-promises": "error",
+    "eqeqeq": "error",
+    "no-console": "error",
+
+    "max-lines-per-function": [
+      "error",
+      { "max": 50, "skipBlankLines": true, "skipComments": true }
+    ],
+    "max-lines": [
+      "error",
+      { "max": 300, "skipBlankLines": true, "skipComments": true }
+    ],
+    "max-depth": ["error", 3],
+    "complexity": ["error", 10],
+    "max-params": ["error", 4]
+  },
+  "env": {
+    "node": true
+  },
+  "overrides": [
+    {
+      "files": ["src/modules/{auth,profiles,platforms,llm,storage,events}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/modules/offers/**",
+                  "**/modules/documents/**",
+                  "**/modules/autoapply/**",
+                  "**/modules/applications/**"
+                ],
+                "message": "Couche 1 : une feuille n'appelle personne."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/modules/{offers,documents,autoapply}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/applications/**"],
+                "message": "Couche 2 : ne remonte jamais vers l'orchestrateur — c'est un cycle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
