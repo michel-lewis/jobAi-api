@@ -7,6 +7,7 @@ import { Profile } from '../modules/profiles/entities/profile.entity.js';
 import { Application } from '../modules/applications/entities/application.entity.js';
 import { GeneratedDocument } from '../modules/documents/entities/generated-document.entity.js';
 import { Offer } from '../modules/offers/entities/offer.entity.js';
+import { ApplicationEvent } from '../modules/events/entities/application-event.entity.js';
 
 const env = validateEnv(process.env);
 
@@ -18,7 +19,14 @@ export const dataSourceOptions: DataSourceOptions = {
   password: env.POSTGRES_SECRET,
   database: env.POSTGRES_DB_NAME,
 
-  entities: [User, Profile, Application, GeneratedDocument, Offer], // à remplir au ticket JOBAI-3
+  entities: [
+    User,
+    Profile,
+    Application,
+    GeneratedDocument,
+    Offer,
+    ApplicationEvent,
+  ], // à remplir au ticket JOBAI-3
   migrations: [`${import.meta.dirname}/../migrations/*.{ts,js}`],
 
   namingStrategy: new SnakeNamingStrategy(),
