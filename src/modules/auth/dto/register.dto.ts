@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 /** Ce que le client envoie : un mot de passe EN CLAIR, jamais un hash. */
 export const registerSchema = z.object({
-  email: z.email(),
+  email: z.email().trim().toLowerCase(),
   password: z.string().min(8).max(100),
-  name: z.string().min(1).max(100).optional(),
+  name: z.string().trim().min(1).max(100).optional(),
 });
 
 export type RegisterDto = z.infer<typeof registerSchema>;

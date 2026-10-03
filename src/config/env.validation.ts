@@ -10,6 +10,8 @@ const envSchema = z.object({
   POSTGRES_DB_NAME: z.string(),
   POSTGRES_PORT: z.coerce.number().default(5432),
   POSTGRES_HOST: z.string().default('localhost'),
+  JWT_SECRET: z.string().min(32),
+  JWT_EXPIRATION: z.string().default('1h'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -18,7 +20,10 @@ export function validateEnv(env: Record<string, unknown>): Env {
   const result = envSchema.safeParse(env);
 
   if (!result.success) {
-    const errorMessages = result.error.issues.map((err) => err.message);
+    // Sans le chemin, le message ne dit pas QUELLE variable manque.
+    const errorMessages = result.error.issues.map(
+      (issue) => `${issue.path.join('.')}: ${issue.message}`,
+    );
     throw new Error(
       `Environment validation error:\n${errorMessages.join('\n')}`,
     );

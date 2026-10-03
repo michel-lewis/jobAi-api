@@ -6,6 +6,10 @@ coverage/
 
 .env
 .env.local
+# cspell:ignore nvmrc
+.nvmrc
 
 *.log
 .DS_Store
+.claude/
+

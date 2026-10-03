@@ -18,15 +18,15 @@ not a missing feature — see [Design decisions](#design-decisions).
 
 ## Stack
 
-| Layer | Choice |
-| --- | --- |
-| Runtime | Node.js 22 (ESM) |
-| Framework | NestJS + TypeScript |
-| Database | PostgreSQL 17 + TypeORM |
-| Queue | Redis + BullMQ |
-| Validation | Zod |
-| Tests | Vitest, Supertest, Testcontainers |
-| Hosting | Railway |
+| Layer      | Choice                            |
+| ---------- | --------------------------------- |
+| Runtime    | Node.js 22 (ESM)                  |
+| Framework  | NestJS + TypeScript               |
+| Database   | PostgreSQL 17 + TypeORM           |
+| Queue      | Redis + BullMQ                    |
+| Validation | Zod                               |
+| Tests      | Vitest, Supertest, Testcontainers |
+| Hosting    | Railway                           |
 
 ## Getting started
 
@@ -40,7 +40,7 @@ npm run migration:run
 npm run start:dev
 ```
 
-The API listens on `http://localhost:3000`. The OpenAPI contract is served at `/docs`.
+The API listens on `http://localhost:3000`.
 
 Check that the database is actually ready, not merely started:
 
@@ -104,16 +104,16 @@ src/
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `npm run start:dev` | Development server with reload |
-| `npm run build` | Production build |
-| `npm test` | Unit tests |
-| `npm run test:e2e` | End-to-end tests |
-| `npm run lint` | Lint and autofix |
-| `npm run migration:generate -- src/migrations/<Name>` | Generate a migration |
-| `npm run migration:run` | Apply pending migrations |
-| `npm run migration:revert` | Roll back the last migration |
+| Command                                               | Purpose                        |
+| ----------------------------------------------------- | ------------------------------ |
+| `npm run start:dev`                                   | Development server with reload |
+| `npm run build`                                       | Production build               |
+| `npm test`                                            | Unit tests                     |
+| `npm run test:e2e`                                    | End-to-end tests               |
+| `npm run lint`                                        | Lint and autofix               |
+| `npm run migration:generate -- src/migrations/<Name>` | Generate a migration           |
+| `npm run migration:run`                               | Apply pending migrations       |
+| `npm run migration:revert`                            | Roll back the last migration   |
 
 ## Roadmap
 
@@ -132,4 +132,5 @@ src/
 ## License
 
 MIT
+
 # jobAi-api
