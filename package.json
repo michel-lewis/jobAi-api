@@ -28,7 +28,8 @@
     "typeorm": "tsx ./node_modules/typeorm/cli.js -d src/config/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "test:int": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -53,7 +54,8 @@
     "@nestjs/cli": "^12.0.0",
     "@nestjs/mau": "^0.0.6",
     "@nestjs/schematics": "^12.0.0",
-    "@nestjs/testing": "^12.0.1",
+    "@nestjs/testing": "^12.1.2",
+    "@testcontainers/postgresql": "^12.2.0",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",

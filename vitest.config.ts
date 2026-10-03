@@ -9,5 +9,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    // Les tests d'intégration ont leur propre config : ils sont lents.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.int-spec.ts'],
   },
 });

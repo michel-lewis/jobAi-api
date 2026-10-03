@@ -2,12 +2,8 @@ import 'dotenv/config';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { validateEnv } from './env.validation.js';
-import { User } from '../modules/auth/entities/user.entity.js';
-import { Profile } from '../modules/profiles/entities/profile.entity.js';
-import { Application } from '../modules/applications/entities/application.entity.js';
-import { GeneratedDocument } from '../modules/documents/entities/generated-document.entity.js';
-import { Offer } from '../modules/offers/entities/offer.entity.js';
-import { ApplicationEvent } from '../modules/events/entities/application-event.entity.js';
+import { entities } from './entities.js';
+import { migrations } from '../migrations/index.js';
 
 const env = validateEnv(process.env);
 
@@ -19,15 +15,8 @@ export const dataSourceOptions: DataSourceOptions = {
   password: env.POSTGRES_SECRET,
   database: env.POSTGRES_DB_NAME,
 
-  entities: [
-    User,
-    Profile,
-    Application,
-    GeneratedDocument,
-    Offer,
-    ApplicationEvent,
-  ], // à remplir au ticket JOBAI-3
-  migrations: [`${import.meta.dirname}/../migrations/*.{ts,js}`],
+  entities,
+  migrations,
 
   namingStrategy: new SnakeNamingStrategy(),
   synchronize: false,
