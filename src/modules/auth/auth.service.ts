@@ -41,12 +41,12 @@ export class AuthService {
       select: { id: true },
     });
 
-    if (existing) {
-      throw new ConflictException({
-        code: 'EMAIL_TAKEN',
-        message: 'Cet email est déjà utilisé',
-      });
-    }
+    // if (existing) {
+    //   throw new ConflictException({
+    //     code: 'EMAIL_TAKEN',
+    //     message: 'Cet email est déjà utilisé',
+    //   });
+    // }
 
     const user = this.users.create({
       email: dto.email,
