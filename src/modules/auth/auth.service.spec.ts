@@ -101,6 +101,19 @@ describe('AuthService', () => {
       expect(error.getResponse()).toEqual(INVALID_CREDENTIALS);
     });
 
+    it('cherche en base avec l email demandé', async () => {
+      // Le faux repository renvoie le même utilisateur quoi qu'on lui
+      // demande : sans cette assertion, un service qui chercherait toujours
+      // le même email passerait tous les autres tests.
+      repository.findOne.mockResolvedValueOnce(makeUser({ passwordHash }));
+
+      await service.login({ email: 'user@example.com', password: PASSWORD });
+
+      expect(repository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { email: 'user@example.com' } }),
+      );
+    });
+
     it('accepte le bon mot de passe et ne renvoie jamais le hash', async () => {
       const user = makeUser({ passwordHash });
       repository.findOne.mockResolvedValueOnce(user);

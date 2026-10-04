@@ -1,0 +1,76 @@
+# Requêtes de l'API JobAI — extension VS Code "REST Client" (humao.rest-client)
+# Clique sur "Send Request" au-dessus de chaque bloc.
+# Ce fichier est versionné : il se partage et se relit comme du code.
+
+@host = http://localhost:3000
+@email = lewissexample.com
+@password = motdepasse123
+
+### Inscription — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "Lewis"
+}
+
+### Email déjà pris — attendu 409
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Email invalide — attendu 400
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "pas-un-email",
+  "password": "{{password}}"
+}
+
+### Connexion — attendu 200 + token
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Connexion avec majuscules et espaces — attendu 200 aussi
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "  LEWIS@Example.COM  ",
+  "password": "{{password}}"
+}
+
+### Mauvais mot de passe — attendu 401
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "mauvais"
+}
+
+### Email inconnu — attendu 401, RÉPONSE IDENTIQUE à la précédente
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "personne@example.com",
+  "password": "{{password}}"
+}
+
+### Route protégée — réutilise le token de la requête "login"
+GET {{host}}/auth/me
+Authorization: Bearer {{login.response.body.token}}
