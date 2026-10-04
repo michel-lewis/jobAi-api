@@ -1,0 +1,44 @@
+name: CI
+
+# Sur chaque push de main, et sur chaque pull request qui la vise.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Vérification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Lit .nvmrc : une seule source de vérité pour la version de Node,
+          # ici comme sur ta machine.
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` au lieu de `npm install` : installe exactement le
+      # package-lock.json, sans jamais le modifier. Une CI ne doit pas
+      # découvrir une nouvelle version de dépendance toute seule.
+      - run: npm ci
+
+      - name: Format, lint, types, tests unitaires
+        run: npm run verify
+
+      # Testcontainers démarre un vrai Postgres. Docker est déjà présent sur
+      # les machines ubuntu-latest de GitHub, il n'y a rien à installer.
+      - name: Tests d'intégration
+        run: npm run test:int
+        env:
+          # Le harnais passe par validateEnv, qui exige ces variables même
+          # quand la base vient du conteneur.
+          JWT_SECRET: valeur-de-test-suffisamment-longue-pour-zod-32
+          JWT_EXPIRATION: 1h
+          POSTGRES_USER: ci
+          POSTGRES_SECRET: ci
+          POSTGRES_DB_NAME: ci
