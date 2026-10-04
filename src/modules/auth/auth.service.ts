@@ -58,9 +58,6 @@ export class AuthService {
       const saved = await this.users.save(user);
       return this.toRegisteredDto(saved);
     } catch (error) {
-      // Deux inscriptions simultanées passent toutes deux la pré-vérification.
-      // La contrainte UNIQUE en base est la seule garantie réelle : on traduit
-      // sa violation en 409 plutôt que de laisser remonter un 500.
       if (
         error instanceof QueryFailedError &&
         (error.driverError as { code?: string })?.code === PG_UNIQUE_VIOLATION

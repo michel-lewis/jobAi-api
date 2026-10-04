@@ -16,7 +16,7 @@
     "start:prod": "node dist/main",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:cov": "vitest run --coverage",
+    "test:cov": "vitest run --coverage --config vitest.coverage.config.ts",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "lint": "oxlint src/ test/ --max-warnings=0",
@@ -30,7 +30,7 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "test:int": "vitest run --config vitest.integration.config.ts",
-    "test:int:cov": "vitest run --coverage --config vitest.integration.config.ts"
+    "test:cov:unit": "vitest run --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
