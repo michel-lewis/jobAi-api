@@ -7,7 +7,7 @@ import { z } from 'zod';
  * login constate une présence.
  */
 export const loginSchema = z.object({
-  email: z.email().trim().toLowerCase(),
+  email: z.string().trim().toLowerCase().pipe(z.email()),
   password: z.string().min(1).max(100),
 });
 
