@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git push --force*)"
+    ],
+    "ask": [
+      "Bash(npm run migration:run*)",
+      "Bash(npm run migration:revert*)",
+      "Bash(git push*)",
+      "Bash(docker compose down*)",
+      "Edit(./src/migrations/**)"
+    ],
+    "allow": [
+      "Bash(npm run verify)",
+      "Bash(npm run lint*)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run test*)",
+      "Bash(npm run format*)",
+      "Bash(npm run migration:generate*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(docker compose ps)",
+      "Bash(docker compose logs*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/format-edited.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

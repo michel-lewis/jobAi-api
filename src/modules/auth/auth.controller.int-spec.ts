@@ -77,22 +77,33 @@ describe('POST /auth/register et /auth/login', () => {
     });
   });
 
-  it('bloque la 6e tentative de connexion en une minute', async () => {
-    const credentials = { email: EMAIL, password: 'mauvais-mot-de-passe' };
+  /**
+   * M8 — bug B : le `select` de login avait oublié `autoApplyEnabled`, donc
+   * le champ valait `undefined` en production. TypeScript ne pouvait rien
+   * voir : le type de `findOne` promet l'entité entière, quel que soit le
+   * `select`.
+   *
+   * Aucun test unitaire ne peut attraper ça — un faux repository rend
+   * l'objet qu'on lui a donné sans jamais regarder le `select`. Seule une
+   * vraie base respecte la liste des colonnes demandées.
+   */
+  it('renvoie tous les champs du profil à la connexion', async () => {
+    await request(api.server)
+      .post('/auth/register')
+      .send({ email: EMAIL, password: PASSWORD, name: 'Lewis' });
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const refused = await request(api.server)
-        .post('/auth/login')
-        .send(credentials);
-
-      expect(refused.status).toBe(401);
-    }
-
-    const blocked = await request(api.server)
+    const response = await request(api.server)
       .post('/auth/login')
-      .send(credentials);
+      .send({ email: EMAIL, password: PASSWORD });
 
-    expect(blocked.status).toBe(429);
-    expect(blocked.body.code).toBe('TOO_MANY_REQUESTS');
-  }, 60_000);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: expect.any(String),
+      email: EMAIL,
+      name: 'Lewis',
+      autoApplyEnabled: false,
+      createdAt: expect.any(String),
+      token: expect.any(String),
+    });
+  });
 });

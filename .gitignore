@@ -10,6 +10,4 @@ coverage/
 
 *.log
 .DS_Store
-.claude/
-test/
-
+.claude/settings.local.json
