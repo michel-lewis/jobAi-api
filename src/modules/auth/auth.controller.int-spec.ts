@@ -76,4 +76,34 @@ describe('POST /auth/register et /auth/login', () => {
       ],
     });
   });
+
+  /**
+   * M8 — bug B : le `select` de login avait oublié `autoApplyEnabled`, donc
+   * le champ valait `undefined` en production. TypeScript ne pouvait rien
+   * voir : le type de `findOne` promet l'entité entière, quel que soit le
+   * `select`.
+   *
+   * Aucun test unitaire ne peut attraper ça — un faux repository rend
+   * l'objet qu'on lui a donné sans jamais regarder le `select`. Seule une
+   * vraie base respecte la liste des colonnes demandées.
+   */
+  it('renvoie tous les champs du profil à la connexion', async () => {
+    await request(api.server)
+      .post('/auth/register')
+      .send({ email: EMAIL, password: PASSWORD, name: 'Lewis' });
+
+    const response = await request(api.server)
+      .post('/auth/login')
+      .send({ email: EMAIL, password: PASSWORD });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: expect.any(String),
+      email: EMAIL,
+      name: 'Lewis',
+      autoApplyEnabled: false,
+      createdAt: expect.any(String),
+      token: expect.any(String),
+    });
+  });
 });
