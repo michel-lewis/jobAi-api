@@ -52,6 +52,9 @@ describe('users table — contrainte d unicité sur email', () => {
     expect(saved.id).toMatch(uuidRegex);
   });
 
+  // TypeORM journalise la requête que Postgres refuse. Le « query failed »
+  // qui apparaît dans la sortie est donc ATTENDU — c'est la preuve que la
+  // contrainte a fait son travail, pas le signe d'un test cassé.
   it('refuse un second utilisateur avec le même email', async () => {
     // Arrange
 
