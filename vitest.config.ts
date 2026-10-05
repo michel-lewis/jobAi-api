@@ -9,6 +9,12 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    // argon2 est un module natif compilé. Chargé dans plusieurs processus
+    // lancés en parallèle, il fait tomber le worker sur macOS ARM — le
+    // fichier ne « rate » pas, son processus meurt. En série, tout va bien.
+    // La suite unitaire dure moins d'une seconde : rien à gagner à la
+    // paralléliser.
+    fileParallelism: false,
     // Les tests d'intégration ont leur propre config : ils sont lents.
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.int-spec.ts'],
     coverage: {
