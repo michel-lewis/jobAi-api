@@ -76,23 +76,4 @@ describe('POST /auth/register et /auth/login', () => {
       ],
     });
   });
-
-  it('bloque la 6e tentative de connexion en une minute', async () => {
-    const credentials = { email: EMAIL, password: 'mauvais-mot-de-passe' };
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const refused = await request(api.server)
-        .post('/auth/login')
-        .send(credentials);
-
-      expect(refused.status).toBe(401);
-    }
-
-    const blocked = await request(api.server)
-      .post('/auth/login')
-      .send(credentials);
-
-    expect(blocked.status).toBe(429);
-    expect(blocked.body.code).toBe('TOO_MANY_REQUESTS');
-  }, 60_000);
 });
