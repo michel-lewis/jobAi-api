@@ -90,6 +90,12 @@ Other traps:
 
 - `npm run verify` passes
 - Tests cover the nominal case **and** at least one error path
+- **Every route added or changed is reflected in `requests/*.http`, in the same
+  commit.** One file per module (`requests/profiles.http`), covering each status
+  the route can return — not only the happy path. These files are the manual
+  counterpart to the automated suite: they are how a human, or the next
+  developer, exercises the API by hand without rebuilding a Postman collection.
+  A commit that changes a controller without touching them is incomplete.
 - Any non-obvious decision is written down; structural ones become an ADR in the
   README
 - No secret reached git history

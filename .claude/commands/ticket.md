@@ -55,6 +55,15 @@ Cas nominal **et** au moins un chemin d'erreur.
 **Prouve chaque test** : casse volontairement le code qu'il protège et
 vérifie qu'il passe au rouge. Un test qui ne tombe jamais n'est pas un test.
 
+## 4b — Les requêtes manuelles
+
+Toute route ajoutée ou modifiée se retrouve dans `requests/<module>.http`,
+avec un bloc par code de retour possible — pas seulement le cas qui marche.
+
+C'est le pendant manuel de la suite automatisée : ce qui permet à un humain
+d'essayer l'API à la main, et de voir une réponse en entier plutôt qu'une
+assertion.
+
 ## 5 — La barrière
 
 `npm run verify`, et `npm run test:int` si le ticket touche la base ou une
