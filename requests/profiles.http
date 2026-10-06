@@ -1,0 +1,121 @@
+# Requêtes de l'API JobAI — extension VS Code "REST Client" (humao.rest-client)
+# Clique sur "Send Request" au-dessus de chaque bloc.
+# Ce fichier est versionné : il se partage et se relit comme du code.
+
+@host = http://localhost:3000
+@email = profiles-demo@example.com
+@password = motdepasse123
+
+### Inscription — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "Lewis"
+}
+
+### Connexion — attendu 200 + token
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Sans jeton — attendu 401
+GET {{host}}/profiles/me
+
+### Jeton invalide — attendu 401
+GET {{host}}/profiles/me
+Authorization: Bearer ceci-n-est-pas-un-jeton
+
+### Profil pas encore créé — attendu 404
+GET {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+
+### Création sans jeton valide — attendu 401
+POST {{host}}/profiles
+Authorization: Bearer ceci-n-est-pas-un-jeton
+Content-Type: application/json
+
+{
+  "professionalInformation": "x",
+  "personalInformation": "x",
+  "education": "x"
+}
+
+### Modification sans jeton valide — attendu 401
+PATCH {{host}}/profiles/me
+Authorization: Bearer ceci-n-est-pas-un-jeton
+Content-Type: application/json
+
+{
+  "location": "Lyon"
+}
+
+### Modification d un profil pas encore créé — attendu 404
+PATCH {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "location": "Lyon"
+}
+
+### Création — attendu 201
+POST {{host}}/profiles
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "professionalInformation": "Développeuse backend, 5 ans d'expérience.",
+  "personalInformation": "Disponible immédiatement.",
+  "education": "Master informatique.",
+  "location": "Paris"
+}
+
+### Champ requis vide — attendu 400
+POST {{host}}/profiles
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "professionalInformation": "",
+  "personalInformation": "x",
+  "education": "x"
+}
+
+### Un second profil pour le même utilisateur — attendu 409
+POST {{host}}/profiles
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "professionalInformation": "x",
+  "personalInformation": "x",
+  "education": "x"
+}
+
+### Lecture du profil créé — attendu 200
+GET {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+
+### Modification partielle — attendu 200
+PATCH {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "location": "Lyon"
+}
+
+### PATCH sans aucun champ — attendu 400
+PATCH {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{}

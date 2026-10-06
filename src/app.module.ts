@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { dataSourceOptions } from './config/data-source.js';
 import { validateEnv } from './config/env.validation.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { ProfilesModule } from './modules/profiles/profiles.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
 @Module({
@@ -15,6 +16,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     TypeOrmModule.forRoot(dataSourceOptions),
     AuthModule,
+    ProfilesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

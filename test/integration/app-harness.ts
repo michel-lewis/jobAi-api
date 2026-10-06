@@ -12,6 +12,7 @@ import { DataSource } from 'typeorm';
 import { validateEnv } from '../../src/config/env.validation.js';
 import { testDataSourceOptions, truncateAllTables } from './database.js';
 import { AuthModule } from '../../src/modules/auth/auth.module.js';
+import { ProfilesModule } from '../../src/modules/profiles/profiles.module.js';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter.js';
 
 export interface TestApp {
@@ -44,6 +45,7 @@ export async function startTestApp(): Promise<TestApp> {
       ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
       TypeOrmModule.forRoot(testDataSourceOptions(container)),
       AuthModule,
+      ProfilesModule,
     ],
     providers: [
       { provide: APP_GUARD, useClass: ThrottlerGuard },
