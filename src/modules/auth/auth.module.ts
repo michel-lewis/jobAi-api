@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { User } from './entities/user.entity.js';
-import type { Env } from '../../config/env.validation.js';
+import { jwtModuleOptions } from '../../config/jwt.config.js';
 
 /** COUCHE 1 — feuille. N'importe aucun autre module métier. */
 @Module({
@@ -15,12 +15,7 @@ import type { Env } from '../../config/env.validation.js';
     // register({ secret: process.env.X }) lirait l'env brut et contournerait Zod.
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => ({
-        secret: config.get('JWT_SECRET', { infer: true }),
-        signOptions: {
-          expiresIn: config.get('JWT_EXPIRATION', { infer: true }),
-        },
-      }),
+      useFactory: jwtModuleOptions,
     }),
   ],
   controllers: [AuthController],

@@ -20,6 +20,10 @@ Les 5 derniers messages, pour le style :
 l'outillage, un renommage — propose **plusieurs commits**, avec les fichiers de
 chacun. Un commit qu'on ne peut pas annuler seul est mal découpé.
 
+**Si le diff touche un contrôleur, `requests/*.http` doit être dans le même
+commit.** Une route ajoutée ou modifiée sans sa requête manuelle est un commit
+incomplet — dis-le au lieu de proposer un message.
+
 **Vérifie qu'aucun secret ne part.** Clé, jeton, mot de passe, `.env`. Si tu en
 vois un, arrête-toi et dis-le.
 
