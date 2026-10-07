@@ -8,7 +8,7 @@
 
 ### Inscription — attendu 201
 POST {{host}}/auth/register
-Content-TyBearer ceci-n-est-pas-un-jetonpe: application/json
+Content-Type: application/json
 
 {
   "email": "{{email}}",
@@ -39,7 +39,7 @@ Authorization: Bearer {{login.response.body.token}}
 
 ### Création sans jeton valide — attendu 401
 POST {{host}}/profiles
-Authorization: Bearer {{login.response.body.token}}
+Authorization: Bearer ceci-n-est-pas-un-jeton
 Content-Type: application/json
 
 {

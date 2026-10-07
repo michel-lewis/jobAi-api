@@ -26,7 +26,7 @@ not a missing feature — see [Design decisions](#design-decisions).
 | Queue      | Redis + BullMQ                    |
 | Validation | Zod                               |
 | Tests      | Vitest, Supertest, Testcontainers |
-| Hosting    | Railway                           |
+| Hosting    | Render                            |
 
 ## Getting started
 
@@ -47,6 +47,31 @@ Check that the database is actually ready, not merely started:
 ```bash
 docker compose ps             # database should report "healthy"
 ```
+
+## Deploying to Render
+
+The app runs on Render; the database is [Neon](https://neon.tech), not a Render Postgres
+add-on.
+
+- Set `DATABASE_URL` on the Render service to Neon's **direct** connection string
+  (not the pooled one — see below), with `?sslmode=require` kept in the query string. Never
+  set it in the repo; only `.env.example` carries a placeholder.
+- No `ssl` option is configured in `data-source.ts`, and none is needed: TypeORM hands the
+  full connection string to `pg`, which parses `sslmode` out of the URL itself and builds
+  the TLS config from it. Adding an explicit `ssl` option would just override what the URL
+  already says — don't.
+- `env.validation.ts` still rejects a `DATABASE_URL` that parses as a valid URL but uses the
+  wrong scheme (e.g. pasted from the wrong field), so a misconfigured value is caught at
+  boot instead of surfacing as a connection error after deploy.
+- **Migrations are run from a developer's machine, not from Render.** Render's Pre-Deploy
+  Command — the feature that would run `npm run migration:run` automatically before each
+  deploy — is a paid-plan feature. Until that's worth paying for, point `DATABASE_URL` at
+  Neon locally and run `npm run migration:run` by hand before deploying code that depends
+  on the new schema.
+- Neon's free tier suspends its compute after a period of inactivity; the first query after
+  that takes a cold-start hit (roughly 1-5s), which `GET /health` will surface directly
+  since it does a real `SELECT 1`. Render's own health-check polling keeps the compute warm
+  in practice, but a manual request right after a long idle period can be slow.
 
 ## Architecture
 

@@ -2,11 +2,12 @@ import {
   Catch,
   HttpException,
   HttpStatus,
-  Logger,
   type ArgumentsHost,
   type ExceptionFilter,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import { log } from '../logging/logger.js';
+import type { RequestWithId } from '../middleware/request-context.middleware.js';
 
 /** Le contrat d'erreur de l'API. Une seule forme, pour toutes les erreurs. */
 export interface ErrorResponse {
@@ -40,12 +41,11 @@ const CODE_BY_STATUS: Record<number, string> = {
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
-
   constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const { httpAdapter } = this.httpAdapterHost;
+    const request = host.switchToHttp().getRequest<RequestWithId>();
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
@@ -53,15 +53,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     httpAdapter.reply(
       host.switchToHttp().getResponse(),
-      this.toErrorResponse(exception, status),
+      this.toErrorResponse(exception, status, request.id),
       status,
     );
   }
 
-  private toErrorResponse(exception: unknown, status: number): ErrorResponse {
+  private toErrorResponse(
+    exception: unknown,
+    status: number,
+    requestId: string,
+  ): ErrorResponse {
     if (!(exception instanceof HttpException)) {
-      // Erreur non prévue : on garde le détail pour nous.
-      this.logger.error('Unhandled exception', exception);
+      // Erreur non prévue : on garde le détail pour nous, dans les logs
+      // seulement — repérable via requestId depuis l'extérieur.
+      log('error', {
+        requestId,
+        message: 'Unhandled exception',
+        error: exception instanceof Error ? exception.stack : exception,
+      });
       return {
         code: 'INTERNAL_ERROR',
         message: 'Une erreur interne est survenue',
