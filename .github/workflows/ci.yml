@@ -42,3 +42,15 @@ jobs:
           POSTGRES_USER: ci
           POSTGRES_SECRET: ci
           POSTGRES_DB_NAME: ci
+
+  docker:
+    name: Image Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Un Dockerfile cassé doit faire échouer la PR, pas juste être
+      # découvert au moment du déploiement sur Render.
+      - name: Construit l'image
+        run: docker build -t jobai-api:ci .
