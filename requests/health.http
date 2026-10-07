@@ -1,0 +1,13 @@
+# Requêtes de l'API JobAI — extension VS Code "REST Client" (humao.rest-client)
+# Clique sur "Send Request" au-dessus de chaque bloc.
+# Ce fichier est versionné : il se partage et se relit comme du code.
+
+@host = http://localhost:3000
+
+### Base accessible — attendu 200
+GET {{host}}/health
+
+### Base coupée — attendu 503
+# Pas reproductible depuis ce fichier seul : arrête la base
+# (`docker compose stop database`) puis renvoie cette même requête.
+GET {{host}}/health

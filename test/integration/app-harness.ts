@@ -4,7 +4,12 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
+import {
+  Module,
+  type INestApplication,
+  type MiddlewareConsumer,
+  type NestModule,
+} from '@nestjs/common';
 import type { Server } from 'node:http';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -13,7 +18,9 @@ import { validateEnv } from '../../src/config/env.validation.js';
 import { testDataSourceOptions, truncateAllTables } from './database.js';
 import { AuthModule } from '../../src/modules/auth/auth.module.js';
 import { ProfilesModule } from '../../src/modules/profiles/profiles.module.js';
+import { HealthModule } from '../../src/common/health/health.module.js';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter.js';
+import { applyGlobalMiddleware } from '../../src/common/middleware/index.js';
 
 export interface TestApp {
   /** À passer à request() de Supertest. */
@@ -21,7 +28,21 @@ export interface TestApp {
   app: INestApplication;
   dataSource: DataSource;
   truncateAll(): Promise<void>;
+  /** Coupe la base sans arrêter l'app — pour prouver un vrai 503 sur /health. */
+  stopDatabase(): Promise<void>;
   stop(): Promise<void>;
+}
+
+/**
+ * Même fonction que AppModule.configure() — `applyGlobalMiddleware` — pas
+ * une copie à la main. Un seul endroit décide du câblage ; les deux
+ * modules ne peuvent plus diverger.
+ */
+@Module({})
+class TestMiddlewareModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    applyGlobalMiddleware(consumer);
+  }
 }
 
 /**
@@ -46,6 +67,8 @@ export async function startTestApp(): Promise<TestApp> {
       TypeOrmModule.forRoot(testDataSourceOptions(container)),
       AuthModule,
       ProfilesModule,
+      HealthModule,
+      TestMiddlewareModule,
     ],
     providers: [
       { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -57,6 +80,8 @@ export async function startTestApp(): Promise<TestApp> {
   await app.init();
 
   const dataSource = app.get(DataSource);
+  let containerStopped = false;
+
   return {
     server: app.getHttpServer() as Server,
     app,
@@ -66,9 +91,16 @@ export async function startTestApp(): Promise<TestApp> {
       return truncateAllTables(dataSource);
     },
 
+    async stopDatabase() {
+      await container.stop();
+      containerStopped = true;
+    },
+
     async stop() {
       await app.close();
-      await container.stop();
+      if (!containerStopped) {
+        await container.stop();
+      }
     },
   };
 }
