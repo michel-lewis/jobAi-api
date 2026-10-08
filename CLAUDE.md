@@ -55,6 +55,13 @@ other: `autoapply` needs generated documents but never imports `documents` —
 
 Each module exports its service only. Never its repositories or entities.
 
+**One documented exception to layer 1.** `auth` imports `profiles`, so that a profile
+row is created in the same transaction as the user at registration. Without it there is
+a window where a user exists with no profile, and every read path needs a "maybe
+missing" branch. It is safe because `profiles` is a leaf: it takes the user id from
+`JwtAuthGuard` in `common/`, never from `auth`, so no cycle can form. Any other layer-1
+to layer-1 import needs its own ADR — this one is not a precedent to cite.
+
 ## Conventions
 
 - Entities: `src/modules/<module>/entities/<name>.entity.ts`, class `User` (no
@@ -86,6 +93,25 @@ Other traps:
 - `data-source.ts` is the single config, shared by Nest and the migration CLI.
   Never duplicate it.
 
+## Tooling — read these before working, not after
+
+The ticket flow lives in `.claude/commands/ticket.md`. It is the single source of
+truth for how a ticket is delivered; this file does not restate it.
+
+| | |
+|---|---|
+| `/ticket` | The 12-step flow. Decides **mode A** (tests written and committed red before the code) or **mode B** (proof list frozen before the plan, tests after the code). |
+| `/commit` | Atomic splitting, English, the *why* in the body. |
+| agent `test-writer` | Writes the tests of a feature **before** it exists, from the proof list and the agreed interface. Mode A only. |
+| agent `senior-reviewer` | Reviews a diff adversarially. Run before every commit. |
+| skill `test-policy` | The three test levels, the rule that picks one, the existing harnesses and fixtures, and what disqualifies a test. |
+| skill `migration-review` | Checklist before running any migration. Testcontainers start from an empty table, so this is the bug class tests cannot catch. |
+| skill `adr` | ADR format, location and acceptance criterion. Required for any exception to a rule in this file. |
+
+**Every ticket carries a proof list** — one sentence per behaviour to demonstrate,
+written before the plan. A test that answers no line of that list is a test shaped
+by the code it was meant to constrain.
+
 ## Definition of done
 
 - `npm run verify` passes
@@ -96,6 +122,6 @@ Other traps:
   counterpart to the automated suite: they are how a human, or the next
   developer, exercises the API by hand without rebuilding a Postman collection.
   A commit that changes a controller without touching them is incomplete.
-- Any non-obvious decision is written down; structural ones become an ADR in the
-  README
+- Any non-obvious decision is written down; structural ones become an ADR under
+  `docs/adr/` (skill `adr`)
 - No secret reached git history
