@@ -1,0 +1,122 @@
+# Requêtes de l'API JobAI — extension VS Code "REST Client" (humao.rest-client)
+# Clique sur "Send Request" au-dessus de chaque bloc.
+# Ce fichier est versionné : il se partage et se relit comme du code.
+
+@host = http://localhost:3000
+@email = offers-demo@example.com
+@emailOther = offers-demo-autre@example.com
+@password = motdepasse123
+
+### Inscription — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "Lewis"
+}
+
+### Connexion — attendu 200 + token
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Inscription d'un second utilisateur — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{emailOther}}",
+  "password": "{{password}}",
+  "name": "Alice"
+}
+
+### Connexion du second utilisateur — attendu 200 + token
+# @name loginOther
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailOther}}",
+  "password": "{{password}}"
+}
+
+### Création sans jeton — attendu 401
+POST {{host}}/offers
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe."
+}
+
+### Titre vide — attendu 400
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "",
+  "description": "Nous cherchons une personne pour renforcer notre équipe."
+}
+
+### applyUrl non http(s) — attendu 400
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "applyUrl": "ftp://example.com/jobs/42"
+}
+
+### Création — attendu 201
+# @name created
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe, 5 ans d'expérience minimum.",
+  "company": "Acme Corp",
+  "location": "Calgary, AB",
+  "applyUrl": "https://acme.example.com/jobs/42"
+}
+
+### Lecture de l'offre créée — attendu 200
+GET {{host}}/offers/{{created.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### Lecture sans jeton — attendu 401
+GET {{host}}/offers/{{created.response.body.id}}
+
+### Id qui n'est pas un UUID — attendu 400
+GET {{host}}/offers/ceci-n-est-pas-un-uuid
+Authorization: Bearer {{login.response.body.token}}
+
+### Offre absente (UUID valide, inconnu) — attendu 404
+GET {{host}}/offers/00000000-0000-4000-8000-000000000000
+Authorization: Bearer {{login.response.body.token}}
+
+### Offre privée d'un autre utilisateur — attendu 404, jamais 403
+# L'offre créée ci-dessus appartient à {{email}} ; on la relit avec le
+# jeton de {{emailOther}}. Même réponse qu'une offre qui n'existe pas :
+# rien ne doit révéler qu'une offre privée existe.
+GET {{host}}/offers/{{created.response.body.id}}
+Authorization: Bearer {{loginOther.response.body.token}}
+
+### Liste — ses offres et les offres publiques, paginée — attendu 200
+GET {{host}}/offers?limit=10&offset=0
+Authorization: Bearer {{login.response.body.token}}
+
+### Liste avec limit hors bornes — attendu 400
+GET {{host}}/offers?limit=999
+Authorization: Bearer {{login.response.body.token}}
