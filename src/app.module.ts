@@ -11,6 +11,7 @@ import { dataSourceOptions } from './config/data-source.js';
 import { validateEnv } from './config/env.validation.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
+import { OffersModule } from './modules/offers/offers.module.js';
 import { HealthModule } from './common/health/health.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { applyGlobalMiddleware } from './common/middleware/index.js';
@@ -23,6 +24,7 @@ import { applyGlobalMiddleware } from './common/middleware/index.js';
     TypeOrmModule.forRoot(dataSourceOptions),
     AuthModule,
     ProfilesModule,
+    OffersModule,
     HealthModule,
   ],
   providers: [

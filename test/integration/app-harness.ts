@@ -18,6 +18,7 @@ import { validateEnv } from '../../src/config/env.validation.js';
 import { testDataSourceOptions, truncateAllTables } from './database.js';
 import { AuthModule } from '../../src/modules/auth/auth.module.js';
 import { ProfilesModule } from '../../src/modules/profiles/profiles.module.js';
+import { OffersModule } from '../../src/modules/offers/offers.module.js';
 import { HealthModule } from '../../src/common/health/health.module.js';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter.js';
 import { applyGlobalMiddleware } from '../../src/common/middleware/index.js';
@@ -67,6 +68,7 @@ export async function startTestApp(): Promise<TestApp> {
       TypeOrmModule.forRoot(testDataSourceOptions(container)),
       AuthModule,
       ProfilesModule,
+      OffersModule,
       HealthModule,
       TestMiddlewareModule,
     ],

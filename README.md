@@ -117,6 +117,13 @@ that shape the codebase most:
   no `updated_at`.
 - **`synchronize` stays `false`.** It drops columns without asking. Every generated
   migration is read before it is run.
+- **`UNIQUE(source, external_id)` does not deduplicate pasted offers** (2026-10).
+  `external_id` is `NULL` for every `manual_paste` offer, and `NULL` is never equal to
+  `NULL` under a Postgres unique constraint — a user can paste the same posting any
+  number of times. Not fixed now: telling "the same offer" apart from raw pasted text
+  needs a rule this project can't write correctly until the LLM module can extract a
+  stable identifier (title + company + a normalized description hash, most likely).
+  Revisit once that extraction exists.
 
 ## Project structure
 
