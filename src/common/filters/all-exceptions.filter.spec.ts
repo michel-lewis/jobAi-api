@@ -1,5 +1,5 @@
 import { HttpAdapterHost } from '@nestjs/core';
-import type { ArgumentsHost } from '@nestjs/common';
+import { PayloadTooLargeException, type ArgumentsHost } from '@nestjs/common';
 import { AllExceptionsFilter } from './all-exceptions.filter.js';
 import * as loggerModule from '../logging/logger.js';
 
@@ -45,6 +45,28 @@ describe('AllExceptionsFilter', () => {
         message: 'Une erreur interne est survenue',
       },
       500,
+    );
+  });
+
+  /**
+   * 50 000 caractères accentués peuvent dépasser les 102 400 octets
+   * (100 Ko) qu'Express accepte par défaut — Express répond alors avant
+   * que Zod ne s'exécute, avec son propre corps d'erreur, pas le nôtre.
+   * Sans l'entrée 413, ce cas retombait sur le code générique HTTP_ERROR.
+   */
+  it('traduit un corps trop volumineux (413) en PAYLOAD_TOO_LARGE', () => {
+    const { host, reply } = hostWith('req-abc-123');
+    const adapterHost = {
+      httpAdapter: { reply },
+    } as unknown as HttpAdapterHost;
+    const filter = new AllExceptionsFilter(adapterHost);
+
+    filter.catch(new PayloadTooLargeException(), host);
+
+    expect(reply).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ code: 'PAYLOAD_TOO_LARGE' }),
+      413,
     );
   });
 });
