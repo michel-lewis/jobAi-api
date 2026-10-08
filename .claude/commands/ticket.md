@@ -1,5 +1,5 @@
 ---
-description: Livrer un ticket JobAI de bout en bout — branche, plan, code, tests, revue, PR
+description: Livrer un ticket JobAI de bout en bout — preuves, plan, interface, tests, code, revue, PR
 ---
 
 Ticket : $ARGUMENTS
@@ -20,7 +20,32 @@ commité d'un autre sujet, arrête-toi : on ne mélange pas deux tickets.
 
 `feat/`, `fix/`, `chore/` + un nom court. Jamais de travail sur `main`.
 
-## 2 — Le plan, et tu attends
+## 2 — La liste des preuves, et le mode
+
+Le ticket doit contenir une **liste des preuves** : une phrase par comportement à
+démontrer, en français, sans nom de classe ni de méthode.
+
+> *un PUT qui passe de 3 expériences à 2 laisse exactement 2 lignes et supprime les
+> puces orphelines ; casser le CASCADE rend ce test rouge*
+
+**Si elle manque, arrête-toi et demande-la.** Elle est écrite avant le plan, et par
+moi : une fois le plan lu, la liste ne décrirait plus que ce que le plan rend facile.
+
+Puis annonce le **mode**, décidé par cette seule question :
+
+> **Peut-on écrire l'assertion sans connaître les noms de classes et de méthodes ?**
+
+- **oui → mode A (test-first).** Les tests sont écrits et commités rouges avant le
+  code. C'est le cas du comportement : une règle de calcul, une validation, un
+  contrôle d'ancrage.
+- **non → mode B (preuves-first).** L'interface *est* le travail : schéma, injection,
+  migration, câblage. Le code vient d'abord, les tests ensuite — et ils répondent à
+  la liste, pas au code.
+
+En mode B, si le ticket touche une migration, charge le skill `migration-review` :
+c'est la classe de bug qu'aucun test ne peut attraper.
+
+## 3 — Le plan, et tu attends
 
 Avant de toucher un fichier, présente :
 
@@ -32,30 +57,65 @@ Avant de toucher un fichier, présente :
 Si le ticket est ambigu, pose la question plutôt que de choisir.
 **Attends mon accord avant d'écrire du code.**
 
-## 3 — Implémenter
+Une exception à une règle de `CLAUDE.md` demande un ADR — charge le skill `adr`.
+Une entorse non écrite devient un permis.
+
+## 4 — L'interface, et tu attends (mode A seulement)
+
+Les signatures, sans corps : types, noms de méthodes, formes d'entrée et de sortie.
+C'est le seul contrat partagé entre les tests et l'implémentation.
+
+**Attends mon accord.** Une interface validée après les tests ferait réécrire les
+tests ; validée après le code, elle ne contraindrait plus rien.
+
+## 5 — Les tests d'abord (mode A seulement)
+
+Lance le subagent **test-writer** avec la liste des preuves et l'interface validée.
+
+Tu ne lui souffles pas d'implémentation : il écrit contre l'interface, pas contre un
+code qu'il ne doit pas connaître.
+
+S'il rapporte qu'une preuve n'est pas atteignable avec ces signatures, **l'interface
+est incomplète** : on retourne à l'étape 4 avant d'écrire une ligne de code.
+
+Puis commite les tests, **rouges**, dans leur propre commit :
+`test(<scope>): specify <le comportement>`.
+
+C'est git qui garantit le dispositif : à partir d'ici, toute modification d'un
+fichier de test apparaît dans le diff.
+
+## 6 — Implémenter
 
 Respecte `CLAUDE.md` : les 3 couches et leur sens de dépendance, conventions
 d'entités, ESM avec extension `.js`, validation Zod à l'entrée, DTO de sortie
 explicite, aucune décision métier dans un contrôleur.
 
+**En mode A : tu ne touches à aucun fichier de test.** Si un test te paraît faux,
+tu t'arrêtes et tu le dis — tu ne le corriges pas pour passer au vert. Un test
+ajusté par celui qui écrit le code ne contraint plus rien.
+
 **Discipline de périmètre** : tout ce que tu découvres et qui n'est pas le
 ticket va dans une liste « à faire plus tard », pas dans le diff.
 
-## 4 — Tester
+## 7 — Tester
 
-Choisis le niveau par la question : _si je remplace la base par un faux,
-est-ce que je perds la preuve ?_
+Charge le skill `test-policy` : il porte la règle qui choisit le niveau, les harnais
+et fixtures à réutiliser, et ce qui disqualifie un test.
 
-- non → test unitaire
-- oui → test d'intégration
-- c'est le contrat HTTP qui est en jeu → test de route
+**En mode A**, les tests existent : il reste à les faire passer sans les modifier, et
+à compléter ce que l'implémentation a révélé — en l'annonçant.
 
-Cas nominal **et** au moins un chemin d'erreur.
+**En mode B**, tu les écris maintenant, et tu rends un **tableau de correspondance** :
+chaque ligne de la liste des preuves, le fichier et le nom du test qui la couvre.
+Une ligne peut être ajoutée, jamais retirée en silence : une suppression demande une
+raison écrite.
+
+Dans les deux modes : cas nominal **et** au moins un chemin d'erreur.
 
 **Prouve chaque test** : casse volontairement le code qu'il protège et
 vérifie qu'il passe au rouge. Un test qui ne tombe jamais n'est pas un test.
 
-## 4b — Les requêtes manuelles
+## 7b — Les requêtes manuelles
 
 Toute route ajoutée ou modifiée se retrouve dans `requests/<module>.http`,
 avec un bloc par code de retour possible — pas seulement le cas qui marche.
@@ -64,34 +124,42 @@ C'est le pendant manuel de la suite automatisée : ce qui permet à un humain
 d'essayer l'API à la main, et de voir une réponse en entier plutôt qu'une
 assertion.
 
-## 5 — La barrière
+## 8 — La barrière
 
 `npm run verify`, et `npm run test:int` si le ticket touche la base ou une
 route. Rien n'est « terminé » avant.
 
-## 6 — La revue
+## 9 — La revue
 
 Lance le subagent **senior-reviewer** sur le diff.
 
 Rapporte ses conclusions **sans les filtrer**, y compris celles qui te
 contredisent. Pour chacune : corrigée, ou écartée avec une raison écrite.
 
-## 7 — Les commits
+Puis réponds toi-même à deux questions que son périmètre ne couvre pas :
+
+- **Un fichier de test a-t-il été modifié après le commit rouge ?** Si oui, lequel et
+  pourquoi.
+- **Le ticket atteint-il son but ?** Le relecteur regarde le diff ; cette question
+  reste la mienne, et c'est elle qui a sauvé le chemin de migration du palier 2.
+
+## 10 — Les commits
 
 Applique les règles de `/commit` : découpage atomique, anglais, le _pourquoi_
 dans le corps. Montre les messages, attends l'accord.
 
-## 8 — Pousser et ouvrir la PR
+## 11 — Pousser et ouvrir la PR
 
 Pousse la branche, ouvre une pull request. La description reprend le
 _pourquoi_ et liste comment vérifier à la main.
 
-## 9 — La CI verte
+## 12 — La CI verte
 
 Attends le résultat. Si elle est rouge, c'est encore le ticket — pas un
 sujet pour plus tard.
 
 ## Pour finir
 
-Un résumé en cinq lignes : ce qui a changé, ce que la revue a trouvé, ce qui
-est parti dans la liste « plus tard ».
+Un résumé en cinq lignes : le mode retenu, ce qui a changé, le tableau de
+correspondance preuves/tests, ce que la revue a trouvé, ce qui est parti dans la
+liste « plus tard ».

@@ -4,11 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { randomBytes } from 'node:crypto';
 import * as argon2 from 'argon2';
 import { User } from './entities/user.entity.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 import type { RegisterDto, RegisteredUserDto } from './dto/register.dto.js';
 import type { LoggedInUserDto, LoginDto } from './dto/login.dto.js';
 
@@ -28,15 +29,22 @@ const DUMMY_HASH: Promise<string> = argon2.hash(
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private readonly users: Repository<User>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jwt: JwtService,
+    private readonly profilesService: ProfilesService,
   ) {}
 
+  /**
+   * Le profil est créé ici, dans la même transaction que l'utilisateur —
+   * jamais plus tard par une route : il n'y a plus de fenêtre où un
+   * utilisateur existe sans profil. `fullName` reprend `user.name` ; vide
+   * quand l'inscription ne l'a pas fourni (il est optionnel), à compléter
+   * ensuite via PUT /profiles/me.
+   */
   async register(dto: RegisterDto): Promise<RegisteredUserDto> {
     // Pré-vérification : sert uniquement à produire un message clair.
     // Ce n'est PAS la garantie d'unicité — voir le catch plus bas.
-    const existing = await this.users.findOne({
+    const existing = await this.dataSource.getRepository(User).findOne({
       where: { email: dto.email },
       select: { id: true },
     });
@@ -48,14 +56,28 @@ export class AuthService {
       });
     }
 
-    const user = this.users.create({
-      email: dto.email,
-      passwordHash: await argon2.hash(dto.password),
-      name: dto.name ?? null,
-    });
+    const passwordHash = await argon2.hash(dto.password);
 
     try {
-      const saved = await this.users.save(user);
+      const saved = await this.dataSource.transaction(async (manager) => {
+        const user = await manager.save(
+          User,
+          manager.create(User, {
+            email: dto.email,
+            passwordHash,
+            name: dto.name ?? null,
+          }),
+        );
+
+        await this.profilesService.createForUser(
+          manager,
+          user.id,
+          user.name ?? '',
+        );
+
+        return user;
+      });
+
       return this.toRegisteredDto(saved);
     } catch (error) {
       if (
@@ -72,7 +94,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<LoggedInUserDto> {
-    const user = await this.users.findOne({
+    const user = await this.dataSource.getRepository(User).findOne({
       where: { email: dto.email },
       select: {
         id: true,

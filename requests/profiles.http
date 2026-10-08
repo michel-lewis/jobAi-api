@@ -6,7 +6,7 @@
 @email = profiles-demo@example.com
 @password = motdepasse123
 
-### Inscription — attendu 201
+### Inscription — attendu 201 (crée aussi le profil, dans la même transaction)
 POST {{host}}/auth/register
 Content-Type: application/json
 
@@ -31,91 +31,128 @@ GET {{host}}/profiles/me
 
 ### Jeton invalide — attendu 401
 GET {{host}}/profiles/me
-Authorization: 
+Authorization:
 
-### Profil pas encore créé — attendu 404
+### Profil créé à l'inscription, version 1 — attendu 200 (regarde l'en-tête ETag)
+# @name read
 GET {{host}}/profiles/me
 Authorization: Bearer {{login.response.body.token}}
 
-### Création sans jeton valide — attendu 401
-POST {{host}}/profiles
-Authorization: Bearer ceci-n-est-pas-un-jeton
+### Document invalide (fullName manquant) — attendu 400
+PUT {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+If-Match: "1"
 Content-Type: application/json
 
 {
-  "professionalInformation": "x",
-  "personalInformation": "x",
-  "education": "x"
+  "experiences": [],
+  "education": [],
+  "skills": [],
+  "languages": [],
+  "certifications": [],
+  "links": []
 }
 
-### Modification sans jeton valide — attendu 401
-PATCH {{host}}/profiles/me
-Authorization: Bearer ceci-n-est-pas-un-jeton
-Content-Type: application/json
-
-{
-  "location": "Lyon"
-}
-
-### Modification d un profil pas encore créé — attendu 404
-PATCH {{host}}/profiles/me
+### PUT sans en-tête If-Match — attendu 400
+PUT {{host}}/profiles/me
 Authorization: Bearer {{login.response.body.token}}
 Content-Type: application/json
 
 {
-  "location": "Lyon"
+  "fullName": "Lewis Kouamkouam",
+  "experiences": [],
+  "education": [],
+  "skills": [],
+  "languages": [],
+  "certifications": [],
+  "links": []
 }
 
-### Création — attendu 201
-POST {{host}}/profiles
+### Remplacement avec un If-Match correct — attendu 200
+# Colle la valeur de l'en-tête ETag de la requête "Profil créé à l'inscription"
+# ci-dessus (normalement "1") dans If-Match.
+PUT {{host}}/profiles/me
 Authorization: Bearer {{login.response.body.token}}
+If-Match: "1"
 Content-Type: application/json
 
 {
-  "professionalInformation": "Développeuse backend, 5 ans d'expérience.",
-  "personalInformation": "Disponible immédiatement.",
-  "education": "Master informatique.",
-  "location": "Paris"
+  "fullName": "Lewis Kouamkouam",
+  "headline": "Développeuse backend · React / NestJS",
+  "summary": "5 ans d'expérience en développement backend.",
+  "email": null,
+  "phone": null,
+  "location": "Calgary, AB, Canada",
+  "willingToRelocate": false,
+  "workPreference": "hybrid",
+  "workAuthorizationNote": null,
+  "rawCvText": null,
+  "experiences": [
+    {
+      "company": "Acme Corp",
+      "title": "Développeuse backend",
+      "employmentType": "full_time",
+      "location": "Calgary, AB",
+      "startDate": "2022-01-01",
+      "endDate": null,
+      "summary": null,
+      "bullets": ["A livré une API de paiement", "A réduit le temps de build de 40%"]
+    }
+  ],
+  "education": [
+    {
+      "school": "Université de Calgary",
+      "degree": "Master informatique",
+      "field": "Génie logiciel",
+      "location": "Calgary, AB",
+      "startDate": "2018-09-01",
+      "endDate": "2020-06-01",
+      "credentialEvaluation": null,
+      "honours": null
+    }
+  ],
+  "skills": [
+    { "name": "TypeScript", "category": "language" },
+    { "name": "NestJS", "category": "framework" }
+  ],
+  "languages": [
+    { "name": "Français", "proficiency": "native" },
+    { "name": "Anglais", "proficiency": "professional" }
+  ],
+  "certifications": [],
+  "links": [
+    { "kind": "github", "url": "https://github.com/lewis", "label": null }
+  ]
 }
 
-### Champ requis vide — attendu 400
-POST {{host}}/profiles
+### If-Match périmé (réutilise "1", déjà consommé par le remplacement ci-dessus) — attendu 409
+PUT {{host}}/profiles/me
 Authorization: Bearer {{login.response.body.token}}
+If-Match: "1"
 Content-Type: application/json
 
 {
-  "professionalInformation": "",
-  "personalInformation": "x",
-  "education": "x"
+  "fullName": "Lewis Kouamkouam, encore modifié",
+  "experiences": [],
+  "education": [],
+  "skills": [],
+  "languages": [],
+  "certifications": [],
+  "links": []
 }
 
-### Un second profil pour le même utilisateur — attendu 409
-POST {{host}}/profiles
+### If-Match mal formé — attendu 400
+PUT {{host}}/profiles/me
 Authorization: Bearer {{login.response.body.token}}
+If-Match: pas-un-nombre
 Content-Type: application/json
 
 {
-  "professionalInformation": "x",
-  "personalInformation": "x",
-  "education": "x"
+  "fullName": "Lewis Kouamkouam",
+  "experiences": [],
+  "education": [],
+  "skills": [],
+  "languages": [],
+  "certifications": [],
+  "links": []
 }
-
-### Lecture du profil créé — attendu 200
-GET {{host}}/profiles/me
-Authorization: Bearer {{login.response.body.token}}
-
-### Modification partielle — attendu 200
-PATCH {{host}}/profiles/me
-Authorization: Bearer {{login.response.body.token}}
-Content-Type: application/json
-
-{
-  "location": "Lyon"
-}
-
-### PATCH sans aucun champ — attendu 400
-PATCH {{host}}/profiles/me
-Authorization: Bearer {{login.response.body.token}}
-Content-Type: application/json
-
-{}

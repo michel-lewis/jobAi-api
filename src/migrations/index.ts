@@ -1,4 +1,5 @@
 import { InitialSchema1790664971345 } from './1790664971345-InitialSchema.js';
+import { StructuredProfile1791366226406 } from './1791366226406-StructuredProfile.js';
 
 /**
  * Migrations déclarées explicitement, dans l'ordre. Le glob
@@ -8,4 +9,7 @@ import { InitialSchema1790664971345 } from './1790664971345-InitialSchema.js';
  * Contrepartie : chaque nouvelle migration s'ajoute ici à la main. C'est le
  * même compromis que pour les entités, et il est assumé.
  */
-export const migrations = [InitialSchema1790664971345];
+export const migrations = [
+  InitialSchema1790664971345,
+  StructuredProfile1791366226406,
+];

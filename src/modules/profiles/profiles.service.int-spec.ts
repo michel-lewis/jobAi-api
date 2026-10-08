@@ -1,21 +1,19 @@
 import { ConflictException } from '@nestjs/common';
-import { QueryFailedError, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import {
   startTestDatabase,
   type TestDatabase,
 } from '../../../test/integration/postgres-harness.js';
+import { makePutProfileDto } from '../../../test/fixtures/profile.fixture.js';
 import { User } from '../auth/entities/user.entity.js';
 import { Profile } from './entities/profile.entity.js';
+import { ProfileExperience } from './entities/profile-experience.entity.js';
+import { ExperienceBullet } from './entities/experience-bullet.entity.js';
 import { ProfilesService } from './profiles.service.js';
 
 /**
- * Le test unitaire prouve que TA logique renvoie un 409 quand la
- * pré-vérification trouve un profil. Il ne prouve rien sur la base : un
- * faux repository ne sait pas si la contrainte UNIQUE existe.
- *
- * Ici il n'y a aucun faux. Le schéma vient des migrations, la contrainte
- * vient de Postgres. C'est le seul test des deux qui tombe si
- * `uq_profiles_user_id` disparaît de l'entité.
+ * Le schéma vient des migrations, la contrainte vient de Postgres — un faux
+ * repository ne sait pas si `uq_profiles_user_id` existe.
  */
 describe('profiles table — contrainte d unicité sur user_id', () => {
   let db: TestDatabase;
@@ -39,41 +37,31 @@ describe('profiles table — contrainte d unicité sur user_id', () => {
   it('accepte un premier profil pour un utilisateur', async () => {
     const user = await users.save({
       email: 'test@example.com',
-      passwordHash: 'password',
+      passwordHash: 'x',
     });
 
     const saved = await profiles.save({
       userId: user.id,
-      professionalInformation: 'x',
-      personalInformation: 'y',
-      education: 'z',
+      fullName: 'Lewis',
+      version: 1,
     });
 
     expect(saved.id).toBeDefined();
   });
 
-  // Même raison que pour users : le « query failed » journalisé ici est
-  // ATTENDU, pas le signe d'un test cassé.
   it('refuse un second profil pour le même utilisateur', async () => {
     const user = await users.save({
       email: 'test@example.com',
-      passwordHash: 'password',
+      passwordHash: 'x',
     });
 
     const insert1 = await profiles.save({
       userId: user.id,
-      professionalInformation: 'x',
-      personalInformation: 'y',
-      education: 'z',
+      fullName: 'Lewis',
+      version: 1,
     });
-
     const insert2 = await profiles
-      .save({
-        userId: user.id,
-        professionalInformation: 'autre',
-        personalInformation: 'autre',
-        education: 'autre',
-      })
+      .save({ userId: user.id, fullName: 'Autre', version: 1 })
       .catch((e) => e);
 
     expect(insert1.id).toBeDefined();
@@ -83,22 +71,26 @@ describe('profiles table — contrainte d unicité sur user_id', () => {
 });
 
 /**
- * Le test ci-dessus prouve que la contrainte existe en base, mais en
- * appelant le repository directement — pas `ProfilesService.create()`. Le
- * test unitaire du service, lui, mocke la forme de l'erreur à la main. Ni
- * l'un ni l'autre ne prouve que le vrai driver Postgres produit une erreur
- * que le `catch` de `create()` sait reconnaître. Ici, deux créations
- * concurrentes passent par le service, sur une vraie base.
+ * Le profil est créé par AuthService.register(), dans la même transaction
+ * que l'utilisateur — pas par ces tests. Ici, on simule ce même point de
+ * départ en appelant `createForUser` directement, hors de toute transaction
+ * d'inscription réelle, pour isoler ce que ProfilesService.replace() fait
+ * ensuite.
  */
-describe('ProfilesService.create — la course réelle à travers le service', () => {
+describe('ProfilesService.replace — remplacement complet, une transaction', () => {
   let db: TestDatabase;
   let users: Repository<User>;
+  let experiences: Repository<ProfileExperience>;
+  let bullets: Repository<ExperienceBullet>;
   let service: ProfilesService;
+  let userId: string;
 
   beforeAll(async () => {
     db = await startTestDatabase();
     users = db.dataSource.getRepository(User);
-    service = new ProfilesService(db.dataSource.getRepository(Profile));
+    experiences = db.dataSource.getRepository(ProfileExperience);
+    bullets = db.dataSource.getRepository(ExperienceBullet);
+    service = new ProfilesService(db.dataSource);
   }, 180_000);
 
   afterAll(async () => {
@@ -107,34 +99,102 @@ describe('ProfilesService.create — la course réelle à travers le service', (
 
   beforeEach(async () => {
     await db.truncateAll();
-  });
-
-  it('traduit la course entre deux créations concurrentes en 409', async () => {
     const user = await users.save({
       email: 'test@example.com',
-      passwordHash: 'password',
+      passwordHash: 'x',
     });
-    const payload = {
-      professionalInformation: 'x',
-      personalInformation: 'y',
-      education: 'z',
-    };
+    userId = user.id;
+    await service.createForUser(
+      db.dataSource.manager,
+      userId,
+      'Lewis Kouamkouam',
+    );
+  });
 
-    const [result1, result2] = await Promise.allSettled([
-      service.create(user.id, payload),
-      service.create(user.id, payload),
-    ]);
-    const outcomes = [result1, result2];
+  it('remplace le document avec un If-Match correct et incrémente la version', async () => {
+    const result = await service.replace(
+      userId,
+      1,
+      makePutProfileDto({ fullName: 'Lewis Modifié' }),
+    );
 
-    expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
-    const [rejection] = outcomes.filter((o) => o.status === 'rejected') as [
-      PromiseRejectedResult,
-    ];
+    expect(result.version).toBe(2);
+    expect(result.dto.fullName).toBe('Lewis Modifié');
+  });
 
-    expect(rejection.reason).toBeInstanceOf(ConflictException);
-    expect(rejection.reason.getResponse()).toEqual({
-      code: 'PROFILE_EXISTS',
-      message: 'Un profil existe déjà pour cet utilisateur',
+  it('refuse un If-Match périmé sans rien modifier', async () => {
+    await service.replace(
+      userId,
+      1,
+      makePutProfileDto({ fullName: 'Première modif' }),
+    );
+
+    // 1 est maintenant périmée : elle date d'avant "Première modif" (version 2).
+    const error = await service
+      .replace(
+        userId,
+        1,
+        makePutProfileDto({ fullName: 'Deuxième modif, en conflit' }),
+      )
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error.getResponse()).toMatchObject({
+      code: 'PROFILE_VERSION_MISMATCH',
     });
+
+    const { dto } = await service.findMine(userId);
+    expect(dto.fullName).toBe('Première modif');
+  });
+
+  /**
+   * LA preuve du ticket. Un PUT qui passe de 3 à 2 expériences doit laisser
+   * exactement 2 lignes en base, et les puces des expériences supprimées
+   * doivent avoir disparu — pas via du code applicatif qui les efface une
+   * à une, mais via le ON DELETE CASCADE déclenché par la suppression de
+   * leur expérience parente. Si ce CASCADE disparaît de l'entité
+   * ExperienceBullet, ce test tombe : soit la suppression des anciennes
+   * expériences échoue (violation de clé étrangère), soit des puces
+   * orphelines survivent — dans les deux cas, l'assertion ci-dessous rate.
+   */
+  it('un PUT qui passe de 3 à 2 expériences laisse exactement 2 lignes et supprime les puces orphelines', async () => {
+    const threeExperiences = makePutProfileDto({
+      experiences: [1, 2, 3].map((n) => ({
+        company: `Entreprise ${n}`,
+        title: 'Développeuse',
+        employmentType: 'full_time' as const,
+        location: null,
+        startDate: '2020-01-01',
+        endDate: '2021-01-01',
+        summary: null,
+        bullets: [`Puce A de ${n}`, `Puce B de ${n}`],
+      })),
+    });
+
+    await service.replace(userId, 1, threeExperiences);
+
+    const twoExperiences = makePutProfileDto({
+      experiences: threeExperiences.experiences.slice(0, 2),
+    });
+
+    const { dto } = await service.replace(userId, 2, twoExperiences);
+    const profileId = (
+      await db.dataSource.getRepository(Profile).findOneByOrFail({ userId })
+    ).id;
+
+    const remainingExperiences = await experiences.find({
+      where: { profileId },
+    });
+    const remainingBullets = await bullets.find({
+      where: { experienceId: In(remainingExperiences.map((e) => e.id)) },
+    });
+    const allBulletsInDb = await bullets.count();
+
+    expect(dto.experiences).toHaveLength(2);
+    expect(remainingExperiences).toHaveLength(2);
+    // 2 expériences restantes x 2 puces chacune = 4. Si les puces de la
+    // 3e expérience supprimée avaient survécu, ce compte serait 6.
+    expect(allBulletsInDb).toBe(4);
+    expect(remainingBullets).toHaveLength(4);
   });
 });
