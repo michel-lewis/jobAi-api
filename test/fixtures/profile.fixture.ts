@@ -1,18 +1,30 @@
-import { Profile } from '../../src/modules/profiles/entities/profile.entity.js';
-import { makeUser } from './user.fixture.js';
+import type { PutProfileDto } from '../../src/modules/profiles/dto/put-profile.dto.js';
 
-/** Même raison que `makeUser` : un objet typé `Profile`, pas un littéral à la main. */
-export function makeProfile(overrides: Partial<Profile> = {}): Profile {
+/**
+ * Le plus petit document valide pour PUT /profiles/me — tous les tableaux
+ * vides, seul fullName est requis. Les tests qui veulent des enfants
+ * étendent ce squelette plutôt que de le réécrire.
+ */
+export function makePutProfileDto(
+  overrides: Partial<PutProfileDto> = {},
+): PutProfileDto {
   return {
-    id: '7c2e1a9f-3b5d-4e8a-9c1f-2d6b8e4a7c06',
-    userId: '3f1a9c2e-5b7d-4e8a-9c1f-2d6b8e4a7c05',
-    user: makeUser(),
-    professionalInformation: 'Développeuse backend, 5 ans d expérience.',
-    personalInformation: 'Disponible immédiatement.',
-    education: 'Master informatique.',
-    location: 'Paris',
-    createdAt: new Date('2026-01-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    fullName: 'Lewis Kouamkouam',
+    headline: null,
+    summary: null,
+    email: null,
+    phone: null,
+    location: null,
+    willingToRelocate: false,
+    workPreference: null,
+    workAuthorizationNote: null,
+    rawCvText: null,
+    experiences: [],
+    education: [],
+    skills: [],
+    languages: [],
+    certifications: [],
+    links: [],
     ...overrides,
   };
 }
