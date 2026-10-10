@@ -10,6 +10,7 @@ import { ProfileLink } from '../modules/profiles/entities/profile-link.entity.js
 import { Application } from '../modules/applications/entities/application.entity.js';
 import { GeneratedDocument } from '../modules/documents/entities/generated-document.entity.js';
 import { Offer } from '../modules/offers/entities/offer.entity.js';
+import { LlmDailyQuota } from '../modules/llm/entities/llm-daily-quota.entity.js';
 import { ApplicationEvent } from '../modules/events/entities/application-event.entity.js';
 
 /**
@@ -30,6 +31,7 @@ export const entities = [
   ProfileCertification,
   ProfileLink,
   Offer,
+  LlmDailyQuota,
   Application,
   GeneratedDocument,
   ApplicationEvent,

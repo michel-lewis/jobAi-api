@@ -1,5 +1,6 @@
 import { InitialSchema1790664971345 } from './1790664971345-InitialSchema.js';
 import { StructuredProfile1791366226406 } from './1791366226406-StructuredProfile.js';
+import { LlmDailyQuota1791517351328 } from './1791517351328-LlmDailyQuota.js';
 
 /**
  * Migrations déclarées explicitement, dans l'ordre. Le glob
@@ -12,4 +13,5 @@ import { StructuredProfile1791366226406 } from './1791366226406-StructuredProfil
 export const migrations = [
   InitialSchema1790664971345,
   StructuredProfile1791366226406,
+  LlmDailyQuota1791517351328,
 ];

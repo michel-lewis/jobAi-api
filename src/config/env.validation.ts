@@ -30,6 +30,15 @@ const envSchema = z
     POSTGRES_HOST: z.string().default('localhost'),
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRATION: z.string().default('1h'),
+    // Absente en environnement de test : LlmModule y branche un faux
+    // déterministe qui n'appelle jamais le réseau, donc jamais la clé.
+    ANTHROPIC_API_KEY: z.string().optional(),
+    LLM_MODEL: z.string().optional(),
+    LLM_TOTAL_BUDGET_MS: z.coerce.number().int().positive().default(55_000),
+    LLM_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+    LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
+    LLM_DAILY_QUOTA_PER_USER: z.coerce.number().int().positive().default(20),
+    LLM_RETRY_BACKOFF_MS: z.coerce.number().int().nonnegative().default(500),
   })
   .refine(
     (env) =>
@@ -39,7 +48,10 @@ const envSchema = z
       message:
         'Either DATABASE_URL or POSTGRES_USER/POSTGRES_SECRET/POSTGRES_DB_NAME must be set',
     },
-  );
+  )
+  .refine((env) => env.NODE_ENV === 'test' || Boolean(env.ANTHROPIC_API_KEY), {
+    message: 'ANTHROPIC_API_KEY must be set outside the test environment',
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

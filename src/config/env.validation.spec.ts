@@ -7,6 +7,7 @@ describe('validateEnv', () => {
     const env = validateEnv({
       DATABASE_URL: 'postgres://user:pass@host:5432/db',
       JWT_SECRET,
+      NODE_ENV: 'test',
     });
 
     expect(env.DATABASE_URL).toBe('postgres://user:pass@host:5432/db');
@@ -18,6 +19,7 @@ describe('validateEnv', () => {
       POSTGRES_SECRET: 'secret',
       POSTGRES_DB_NAME: 'jobai',
       JWT_SECRET,
+      NODE_ENV: 'test',
     });
 
     expect(env.POSTGRES_USER).toBe('jobai');
@@ -41,5 +43,26 @@ describe('validateEnv', () => {
         JWT_SECRET,
       }),
     ).toThrow(/DATABASE_URL/);
+  });
+
+  it('exige ANTHROPIC_API_KEY hors environnement de test', () => {
+    expect(() =>
+      validateEnv({
+        DATABASE_URL: 'postgres://user:pass@host:5432/db',
+        JWT_SECRET,
+        NODE_ENV: 'production',
+        // Pas de ANTHROPIC_API_KEY.
+      }),
+    ).toThrow(/ANTHROPIC_API_KEY/);
+  });
+
+  it("n'exige pas ANTHROPIC_API_KEY en environnement de test", () => {
+    const env = validateEnv({
+      DATABASE_URL: 'postgres://user:pass@host:5432/db',
+      JWT_SECRET,
+      NODE_ENV: 'test',
+    });
+
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 });
