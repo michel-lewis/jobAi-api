@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ModuleRef } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { LLM_PORT } from './llm.port.js';
 import {
@@ -25,8 +24,7 @@ function isTestEnv(): boolean {
   return process.env.NODE_ENV === 'test';
 }
 
-function readConfigFromEnv(moduleRef: ModuleRef): GuardedLlmServiceConfig {
-  const config = moduleRef.get(ConfigService, { strict: false });
+function readConfigFromEnv(config: ConfigService): GuardedLlmServiceConfig {
   return {
     totalBudgetMs: config.get<number>('LLM_TOTAL_BUDGET_MS') ?? 55_000,
     maxAttempts: config.get<number>('LLM_MAX_ATTEMPTS') ?? 3,
@@ -39,12 +37,25 @@ function readConfigFromEnv(moduleRef: ModuleRef): GuardedLlmServiceConfig {
 /**
  * COUCHE 1 — feuille, aucun autre module métier importé.
  *
- * Pas de ConfigModule ni de TypeOrmModule dans les imports : ConfigService et
- * DataSource sont résolus PARESSEUSEMENT via ModuleRef, seulement dans la
- * branche qui en a réellement besoin. En environnement de test, aucune des
- * deux n'est jamais appelée, donc ce module compile et s'exécute seul — sans
- * AppModule ni ConfigModule.forRoot() ailleurs dans l'arbre, ce qui permet de
- * le tester en isolation sans jamais toucher le réseau ni la base.
+ * Pas de ConfigModule ni de TypeOrmModule dans les imports : les deux sont
+ * des modules globaux (ConfigModule.forRoot({isGlobal:true}), le module coeur
+ * de TypeOrmModule), donc ConfigService et DataSource sont injectables ici
+ * sans import explicite dès que ce module fait partie d'un arbre qui les
+ * enregistre (l'application réelle, ou un harnais de test qui les monte).
+ *
+ * `ConfigService`/`DataSource` sont déclarés dans `inject`, jamais récupérés
+ * via `ModuleRef.get` dans le corps d'une fabrique : `ModuleRef.get` ne crée
+ * aucune arête dans le graphe de dépendances Nest, donc rien ne garantit que
+ * le provider visé soit déjà instancié au moment de l'appel — c'est
+ * exactement ce qui causait le crash en production (ConfigService pas encore
+ * prêt, `moduleRef.get` renvoyait une valeur inutilisable). Déclarer la
+ * dépendance dans `inject` force Nest à construire ConfigService/DataSource
+ * AVANT d'appeler la fabrique.
+ *
+ * Conséquence directe : ce module ne compile plus seul, sans ConfigModule ni
+ * TypeOrmModule dans l'arbre — ce qui est voulu, la preuve « aucun appel
+ * réseau en environnement de test » se fait maintenant avec le vrai câblage
+ * (voir llm.module.int-spec.ts) plutôt qu'en isolation complète.
  *
  * Le choix d'implémentation lit `process.env.NODE_ENV` directement dans le
  * corps de chaque fabrique, jamais dans une condition statique au chargement
@@ -55,37 +66,35 @@ function readConfigFromEnv(moduleRef: ModuleRef): GuardedLlmServiceConfig {
   providers: [
     {
       provide: LLM_PROVIDER_CLIENT,
-      useFactory: (moduleRef: ModuleRef): LlmProviderClient => {
+      useFactory: (config: ConfigService): LlmProviderClient => {
         if (isTestEnv()) {
           return new FakeLlmProviderClient('normal');
         }
-        const config = moduleRef.get(ConfigService, { strict: false });
         return new AnthropicLlmProviderClient(
           config.get<string>('ANTHROPIC_API_KEY') ?? '',
           config.get<string>('LLM_MODEL') ?? DEFAULT_MODEL,
         );
       },
-      inject: [ModuleRef],
+      inject: [ConfigService],
     },
     {
       provide: DAILY_QUOTA_TRACKER,
-      useFactory: (moduleRef: ModuleRef): DailyQuotaTracker => {
+      useFactory: (dataSource: DataSource): DailyQuotaTracker => {
         if (isTestEnv()) {
           return { consume: async () => {} };
         }
-        const dataSource = moduleRef.get(DataSource, { strict: false });
         return new PostgresDailyQuotaTracker(dataSource);
       },
-      inject: [ModuleRef],
+      inject: [DataSource],
     },
     {
       provide: LLM_PORT,
       useFactory: (
         client: LlmProviderClient,
         quota: DailyQuotaTracker,
-        moduleRef: ModuleRef,
+        config: ConfigService,
       ) => {
-        const config: GuardedLlmServiceConfig = isTestEnv()
+        const guardConfig: GuardedLlmServiceConfig = isTestEnv()
           ? {
               totalBudgetMs: 5000,
               maxAttempts: 3,
@@ -93,10 +102,10 @@ function readConfigFromEnv(moduleRef: ModuleRef): GuardedLlmServiceConfig {
               dailyQuotaLimit: 20,
               retryBackoffMs: 500,
             }
-          : readConfigFromEnv(moduleRef);
-        return new GuardedLlmService(client, quota, config);
+          : readConfigFromEnv(config);
+        return new GuardedLlmService(client, quota, guardConfig);
       },
-      inject: [LLM_PROVIDER_CLIENT, DAILY_QUOTA_TRACKER, ModuleRef],
+      inject: [LLM_PROVIDER_CLIENT, DAILY_QUOTA_TRACKER, ConfigService],
     },
   ],
   exports: [LLM_PORT],
