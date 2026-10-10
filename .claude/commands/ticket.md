@@ -4,6 +4,10 @@ description: Livrer un ticket JobAI de bout en bout — preuves, plan, interface
 
 Ticket : $ARGUMENTS
 
+Si l'argument commence par un numéro d'issue (`#12` ou `12`), c'est l'issue GitHub
+qui porte ce ticket : lis-la avec `gh issue view <n>` et traite son contenu comme le
+ticket. Sa liste des preuves remplace celle que j'aurais écrite ici.
+
 État du dépôt :
 
 !`git status --short && git branch --show-current && git log --oneline -3`
@@ -42,6 +46,12 @@ Puis annonce le **mode**, décidé par cette seule question :
   migration, câblage. Le code vient d'abord, les tests ensuite — et ils répondent à
   la liste, pas au code.
 
+**Le mode suit le niveau de test, pas le ticket.** Un test de route se lie au contrat
+HTTP — l'URL, le corps, le code de statut — déjà écrit dans le ticket : il est donc
+toujours mode A. Un test unitaire de service se lie à des signatures : mode B tant
+qu'elles ne sont pas figées. Un ticket peut être mode A pour ses preuves de route et
+mode B pour le reste ; dis-le ainsi plutôt que de forcer un mode unique.
+
 En mode B, si le ticket touche une migration, charge le skill `migration-review` :
 c'est la classe de bug qu'aucun test ne peut attraper.
 
@@ -55,7 +65,8 @@ Avant de toucher un fichier, présente :
 - **ce que ce ticket ne fera pas**, s'il y a une limite à poser
 
 Si le ticket est ambigu, pose la question plutôt que de choisir.
-**Attends mon accord avant d'écrire du code.**
+> **Tu t'arrêtes ici. Tu n'écris rien, tu ne commites rien, avant mon accord
+> explicite. « Le plan semble validé » n'est pas un accord.**
 
 Une exception à une règle de `CLAUDE.md` demande un ADR — charge le skill `adr`.
 Une entorse non écrite devient un permis.
@@ -146,12 +157,21 @@ Puis réponds toi-même à deux questions que son périmètre ne couvre pas :
 ## 10 — Les commits
 
 Applique les règles de `/commit` : découpage atomique, anglais, le _pourquoi_
-dans le corps. Montre les messages, attends l'accord.
+dans le corps.
+
+> **Tu montres les messages et tu attends mon accord. Aucun `git commit` avant.**
+> C'est arrivé une fois : trois commits partis sans accord, dont un étiqueté
+> `test(...)` qui contenait sept fichiers de production. Un message de commit qui
+> dit le contraire de son contenu est pire qu'une étape sautée.
 
 ## 11 — Pousser et ouvrir la PR
 
 Pousse la branche, ouvre une pull request. La description reprend le
 _pourquoi_ et liste comment vérifier à la main.
+
+**Si le ticket vient d'une issue, la description contient `Closes #<n>`.** C'est ce
+mot-clé qui ferme l'issue à la fusion et la passe en Done sur le projet — rien d'autre
+ne le fait. Sans lui, l'issue reste ouverte et le tableau ment.
 
 ## 12 — La CI verte
 
