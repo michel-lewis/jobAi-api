@@ -124,6 +124,20 @@ that shape the codebase most:
   needs a rule this project can't write correctly until the LLM module can extract a
   stable identifier (title + company + a normalized description hash, most likely).
   Revisit once that extraction exists.
+- **The LLM daily quota lives in Postgres, not in memory** (2026-10). Render's free
+  tier sleeps after ~15 minutes idle, so an in-memory counter would reset several times
+  a day, not just on redeploy — it would stop being a daily quota and become, at best,
+  an unreliable per-process burst limiter. One row per user per UTC day, incremented by
+  a single conditional `INSERT ... ON CONFLICT ... WHERE count < limit`, atomically
+  distinguishes "allowed" from "already at the limit" without a separate read.
+- **A total time budget, not a per-attempt timeout, bounds an LLM call** (2026-10).
+  The eventual caller (ticket C) is an HTTP request, and Render drops the connection
+  well before 90s. `GuardedLlmService` divides whatever budget remains by whatever
+  attempts remain before each try, so retries are capped by both a maximum attempt
+  count and total elapsed time, whichever is hit first — never by one attempt alone.
+- **Anthropic (`claude-haiku-4-5` by default) is the LLM provider**, picked pragmatically
+  rather than compared exhaustively — a tailored cover letter is a short, undemanding
+  generation, not a task that needs the most capable available model.
 
 ## Project structure
 

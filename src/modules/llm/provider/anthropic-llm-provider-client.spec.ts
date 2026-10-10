@@ -1,5 +1,6 @@
 import { AnthropicLlmProviderClient } from './anthropic-llm-provider-client.js';
 import { LlmProviderHttpError } from './llm-provider-client.js';
+import { LlmMalformedResponseError } from '../llm.port.js';
 
 /**
  * Clé volontairement reconnaissable : si elle réapparaît n'importe où dans
@@ -149,6 +150,37 @@ describe('AnthropicLlmProviderClient', () => {
         500,
       );
       expect(flattenError(error)).not.toContain(SECRET_API_KEY);
+    },
+  );
+
+  it(
+    "une réponse 200 dont le corps n'est pas un JSON valide lève " +
+      'LlmMalformedResponseError, pas une erreur retentable',
+    async () => {
+      const fakeNonJsonResponse = {
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new SyntaxError('Unexpected token')),
+        text: async () => 'ceci n’est pas du JSON',
+      } as unknown as Response;
+      const fetchMock = vi.fn().mockResolvedValue(fakeNonJsonResponse);
+      vi.stubGlobal('fetch', fetchMock);
+
+      const client = new AnthropicLlmProviderClient(
+        SECRET_API_KEY,
+        'claude-3-5-sonnet-test',
+      );
+
+      const error = await client
+        .send(
+          { prompt: 'Dis bonjour', maxOutputTokens: 100 },
+          new AbortController().signal,
+        )
+        .catch((e) => e);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(LlmMalformedResponseError);
+      expect(error).not.toBeInstanceOf(LlmProviderHttpError);
     },
   );
 });
