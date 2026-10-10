@@ -19,6 +19,7 @@ import { testDataSourceOptions, truncateAllTables } from './database.js';
 import { AuthModule } from '../../src/modules/auth/auth.module.js';
 import { ProfilesModule } from '../../src/modules/profiles/profiles.module.js';
 import { OffersModule } from '../../src/modules/offers/offers.module.js';
+import { LlmModule } from '../../src/modules/llm/llm.module.js';
 import { HealthModule } from '../../src/common/health/health.module.js';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter.js';
 import { applyGlobalMiddleware } from '../../src/common/middleware/index.js';
@@ -69,6 +70,7 @@ export async function startTestApp(): Promise<TestApp> {
       AuthModule,
       ProfilesModule,
       OffersModule,
+      LlmModule,
       HealthModule,
       TestMiddlewareModule,
     ],
