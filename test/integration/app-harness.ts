@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Test } from '@nestjs/testing';
+import type { TestingModuleBuilder } from '@nestjs/testing';
 import {
   Module,
   type INestApplication,
@@ -20,6 +21,8 @@ import { AuthModule } from '../../src/modules/auth/auth.module.js';
 import { ProfilesModule } from '../../src/modules/profiles/profiles.module.js';
 import { OffersModule } from '../../src/modules/offers/offers.module.js';
 import { LlmModule } from '../../src/modules/llm/llm.module.js';
+import { DocumentsModule } from '../../src/modules/documents/documents.module.js';
+import { ApplicationsModule } from '../../src/modules/applications/applications.module.js';
 import { HealthModule } from '../../src/common/health/health.module.js';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter.js';
 import { applyGlobalMiddleware } from '../../src/common/middleware/index.js';
@@ -57,12 +60,19 @@ class TestMiddlewareModule implements NestModule {
  * Les gardes et pipes réels sont en place — le ThrottlerGuard compris, sinon
  * un test de limitation de débit ne testerait rien.
  */
-export async function startTestApp(): Promise<TestApp> {
+export interface StartTestAppOptions {
+  /** Pour substituer un provider (ex. LLM_PORT) par un faux contrôlable. */
+  overrides?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+}
+
+export async function startTestApp(
+  options: StartTestAppOptions = {},
+): Promise<TestApp> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
     'postgres:17-alpine',
   ).start();
 
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
@@ -71,6 +81,8 @@ export async function startTestApp(): Promise<TestApp> {
       ProfilesModule,
       OffersModule,
       LlmModule,
+      DocumentsModule,
+      ApplicationsModule,
       HealthModule,
       TestMiddlewareModule,
     ],
@@ -78,7 +90,13 @@ export async function startTestApp(): Promise<TestApp> {
       { provide: APP_GUARD, useClass: ThrottlerGuard },
       { provide: APP_FILTER, useClass: AllExceptionsFilter },
     ],
-  }).compile();
+  });
+
+  if (options.overrides) {
+    builder = options.overrides(builder);
+  }
+
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication();
   await app.init();

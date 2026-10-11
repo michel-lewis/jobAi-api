@@ -22,6 +22,7 @@ export const APPLICATION_STATUSES = [
   'reviewed',
   'sent',
   'answered',
+  'generation_failed',
 ] as const;
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
@@ -34,7 +35,7 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 @Unique('uq_applications_user_offer', ['userId', 'offerId'])
 @Check(
   'chk_applications_status',
-  `"status" IN ('draft', 'generated', 'reviewed', 'sent', 'answered')`,
+  `"status" IN ('draft', 'generated', 'reviewed', 'sent', 'answered', 'generation_failed')`,
 )
 @Index('idx_applications_user_created', ['userId', 'createdAt'])
 export class Application {
@@ -58,6 +59,24 @@ export class Application {
 
   @Column({ type: 'text', default: 'draft' })
   status: ApplicationStatus;
+
+  /**
+   * Motif d'échec lisible par un humain, posé quand status passe à
+   * 'generation_failed'. NULL tant qu'aucune génération n'a échoué.
+   */
+  @Column({ type: 'text', nullable: true })
+  generationFailureReason: string | null;
+
+  /**
+   * Horodatage du dernier LANCEMENT de génération — posé par startOrRetry à
+   * chaque fois (création initiale ET relance après échec), jamais par
+   * createdAt qui ne bouge plus une fois la ligne insérée. C'est ce champ,
+   * pas createdAt, qui mesure depuis combien de temps un travail 'draft'
+   * est réellement en cours : une relance le lendemain d'un premier échec ne
+   * doit pas naître déjà périmée (ADR-13).
+   */
+  @Column({ type: 'timestamptz' })
+  generationStartedAt: Date;
 
   /** Niveau de préparation réellement utilisé. NULL tant que rien n'est envoyé. */
   @Column({ type: 'text', nullable: true })

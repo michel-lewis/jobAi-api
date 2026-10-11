@@ -39,6 +39,15 @@ const envSchema = z
     LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
     LLM_DAILY_QUOTA_PER_USER: z.coerce.number().int().positive().default(20),
     LLM_RETRY_BACKOFF_MS: z.coerce.number().int().nonnegative().default(500),
+    // Un travail 'draft' plus vieux que ça (depuis generationStartedAt, pas
+    // createdAt) est lu comme échoué par GET /applications/:id — ADR-13.
+    // Largement au-dessus de LLM_TOTAL_BUDGET_MS pour ne jamais périmer un
+    // travail qui progresse encore normalement.
+    GENERATION_STALE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(120_000),
   })
   .refine(
     (env) =>
@@ -51,7 +60,19 @@ const envSchema = z
   )
   .refine((env) => env.NODE_ENV === 'test' || Boolean(env.ANTHROPIC_API_KEY), {
     message: 'ANTHROPIC_API_KEY must be set outside the test environment',
-  });
+  })
+  .refine(
+    (env) =>
+      env.GENERATION_STALE_TIMEOUT_MS >= env.LLM_TOTAL_BUDGET_MS + 10_000,
+    {
+      message:
+        'GENERATION_STALE_TIMEOUT_MS must stay well above LLM_TOTAL_BUDGET_MS ' +
+        '(at least 10s of margin) — otherwise a job still legitimately in ' +
+        'flight gets marked failed while it is still running, and a later ' +
+        'retry can be silently overwritten by that stale job finally ' +
+        'completing (ADR-13)',
+    },
+  );
 
 export type Env = z.infer<typeof envSchema>;
 

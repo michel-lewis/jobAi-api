@@ -1,0 +1,154 @@
+# Requêtes de l'API JobAI — extension VS Code "REST Client" (humao.rest-client)
+# Clique sur "Send Request" au-dessus de chaque bloc.
+# Ce fichier est versionné : il se partage et se relit comme du code.
+#
+# POST /applications lance une génération en tâche de fond (ADR-13) : le
+# premier GET montre probablement encore "draft". Renvoie la requête "Lire
+# l'état" après quelques secondes pour voir "generated" et le document.
+
+@host = http://localhost:3000
+@email = applications-demo@example.com
+@emailOther = applications-demo-autre@example.com
+@password = motdepasse123
+
+### Inscription — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "Lewis"
+}
+
+### Connexion — attendu 200 + token
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Inscription d'un second utilisateur — attendu 201
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{emailOther}}",
+  "password": "{{password}}",
+  "name": "Alice"
+}
+
+### Connexion du second utilisateur — attendu 200 + token
+# @name loginOther
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailOther}}",
+  "password": "{{password}}"
+}
+
+### Profil minimal, nécessaire pour que la génération ait des faits à ancrer — attendu 200
+PUT {{host}}/profiles/me
+Authorization: Bearer {{login.response.body.token}}
+If-Match: "1"
+Content-Type: application/json
+
+{
+  "fullName": "Lewis Kouamkouam",
+  "headline": null,
+  "summary": null,
+  "email": null,
+  "phone": null,
+  "location": "Calgary, AB, Canada",
+  "willingToRelocate": false,
+  "workPreference": "hybrid",
+  "workAuthorizationNote": null,
+  "rawCvText": null,
+  "experiences": [
+    {
+      "company": "Acme Corp",
+      "title": "Développeuse backend",
+      "employmentType": "full_time",
+      "location": "Calgary, AB",
+      "startDate": "2022-01-01",
+      "endDate": null,
+      "summary": null,
+      "bullets": ["A livré une API de paiement"]
+    }
+  ],
+  "education": [],
+  "skills": [{ "name": "TypeScript", "category": "language" }],
+  "languages": [],
+  "certifications": [],
+  "links": []
+}
+
+### Une offre à laquelle postuler — attendu 201
+# @name offer
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une développeuse backend pour notre équipe.",
+  "company": "Acme Corp",
+  "location": "Calgary, AB",
+  "applyUrl": null
+}
+
+### Lancer la génération — attendu 202, statut "draft"
+# @name application
+POST {{host}}/applications
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "offerId": "{{offer.response.body.id}}"
+}
+
+### Lire l'état — attendu 200, "draft" puis "generated" (renvoie après quelques secondes)
+GET {{host}}/applications/{{application.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### Même offre, même utilisateur — attendu 202, aucune nouvelle ligne créée (idempotence)
+POST {{host}}/applications
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "offerId": "{{offer.response.body.id}}"
+}
+
+### Offre d'un autre utilisateur, pas publique — attendu 404
+POST {{host}}/applications
+Authorization: Bearer {{loginOther.response.body.token}}
+Content-Type: application/json
+
+{
+  "offerId": "{{offer.response.body.id}}"
+}
+
+### Application d'un autre utilisateur — attendu 404
+GET {{host}}/applications/{{application.response.body.id}}
+Authorization: Bearer {{loginOther.response.body.token}}
+
+### Id malformé — attendu 400, jamais 500
+GET {{host}}/applications/pas-un-uuid
+Authorization: Bearer {{login.response.body.token}}
+
+### Sans jeton — attendu 401
+GET {{host}}/applications/{{application.response.body.id}}
+
+### Offre inexistante — attendu 404
+POST {{host}}/applications
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "offerId": "00000000-0000-0000-0000-000000000000"
+}
