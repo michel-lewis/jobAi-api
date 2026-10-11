@@ -63,6 +63,21 @@ class NeverResolvesLlm implements LlmPort {
   }
 }
 
+/** Toujours une réponse exploitable, mais compte ses appels réels. */
+class CountingLlm implements LlmPort {
+  calls = 0;
+
+  async generateText(_input: GenerateTextInput): Promise<GenerateTextOutput> {
+    this.calls += 1;
+    return {
+      text: 'Je vous écris pour exprimer mon intérêt pour ce poste.',
+      inputTokens: 10,
+      outputTokens: 20,
+      estimatedCostUsd: 0.001,
+    };
+  }
+}
+
 /**
  * Un seul faux LLM pour tout le fichier, dont la stratégie interne change
  * de test en test — pour ne démarrer qu'UN conteneur Postgres au lieu de
@@ -249,5 +264,92 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
     const secondRead = await applications.findOne(user.id, created.id);
     expect(secondRead.status).toBe('generation_failed');
     expect(secondRead.failureReason).toBe(state.failureReason);
+  });
+
+  // Les tests ci-dessus n'enchaînent que des create() séquentiels : la
+  // contrainte unique Postgres (uq_applications_user_offer) est l'arbitre
+  // réel d'une course, pas seulement un filet de sécurité qu'on ne
+  // déclenche jamais en pratique — Promise.all() ici prouve que deux
+  // tentatives réellement concurrentes, pas juste l'une après l'autre, ne
+  // déclenchent jamais deux générations.
+  it('deux POST réellement concurrents (Promise.all, pas séquentiels) ne déclenchent qu un seul appel LLM', async () => {
+    const counting = new CountingLlm();
+    controllable.setStrategy(counting);
+
+    const user = await makeUser('concurrent');
+    const offer = await offers.create(user.id, {
+      title: 'Poste',
+      description: 'Description du poste.',
+      company: 'Acme',
+      location: 'Montréal',
+      applyUrl: null,
+    });
+
+    const [first] = await Promise.all([
+      applications.create(user.id, offer.id),
+      applications.create(user.id, offer.id),
+    ]);
+
+    await vi.waitFor(
+      async () => {
+        const state = await applications.findOne(user.id, first.id);
+        expect(state.status).toBe('generated');
+      },
+      { timeout: 10_000 },
+    );
+
+    const count = await api.dataSource.getRepository(Application).count({
+      where: { userId: user.id, offerId: offer.id },
+    });
+    expect(count).toBe(1);
+    expect(counting.calls).toBe(1);
+  });
+
+  // Régression : create() doit lui-même constater la péremption d'un
+  // brouillon avant de relancer — pas seulement findOne()/GET. Sans cette
+  // vérification, un brouillon dont le processus est mort restait 'draft'
+  // pour toujours tant que personne ne faisait de GET.
+  it('un POST sur un brouillon périmé relance réellement une génération, sans passer par findOne', async () => {
+    controllable.setStrategy(new NeverResolvesLlm());
+
+    const user = await makeUser('stale-retry');
+    const offer = await offers.create(user.id, {
+      title: 'Poste',
+      description: 'Description du poste.',
+      company: 'Acme',
+      location: 'Montréal',
+      applyUrl: null,
+    });
+
+    const created = await applications.create(user.id, offer.id);
+
+    // Le LLM ne répondra jamais : le brouillon reste réellement 'draft' en
+    // base tant qu'on ne recule pas generationStartedAt nous-mêmes — pas
+    // un vrai délai d'attente.
+    await api.dataSource
+      .getRepository(Application)
+      .update(
+        { id: created.id },
+        { generationStartedAt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      );
+
+    const counting = new CountingLlm();
+    controllable.setStrategy(counting);
+
+    // Le POST seul — jamais findOne()/GET — doit constater la péremption
+    // et relancer une génération réelle.
+    await applications.create(user.id, offer.id);
+
+    await vi.waitFor(
+      async () => {
+        const count = await api.dataSource.getRepository(Application).count({
+          where: { userId: user.id, offerId: offer.id, status: 'generated' },
+        });
+        expect(count).toBe(1);
+      },
+      { timeout: 10_000 },
+    );
+
+    expect(counting.calls).toBeGreaterThanOrEqual(1);
   });
 });

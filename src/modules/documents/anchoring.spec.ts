@@ -68,7 +68,11 @@ describe('checkAnchoring', () => {
   // Preuve 1 — LE test du ticket.
   it('rejette un document qui mentionne une entreprise absente du profil', () => {
     const profile = makeProfileDto();
-    const offer = { title: 'Ingénieur', company: 'Acme' };
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
     const facts = buildAnchoringFacts(profile, offer);
     const text = 'Je souhaite rejoindre Globex Corporation pour ce poste.';
 
@@ -78,7 +82,11 @@ describe('checkAnchoring', () => {
   // Preuve 4.
   it('AnchorViolationError porte un tableau violations non vide listant chaque terme rejeté', () => {
     const profile = makeProfileDto();
-    const offer = { title: 'Ingénieur', company: 'Acme' };
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
     const facts = buildAnchoringFacts(profile, offer);
     const text =
       "Je code pour Globex Corporation et j'ai auparavant travaillé pour Stark Industries.";
@@ -113,6 +121,7 @@ describe('checkAnchoring', () => {
     const offer = {
       title: 'Développeur Backend Senior',
       company: 'Nordique Technologies',
+      description: 'Description du poste.',
     };
     const facts = buildAnchoringFacts(profile, offer);
 
@@ -141,7 +150,11 @@ describe('checkAnchoring', () => {
         }),
       ],
     });
-    const offer = { title: 'Ingénieur', company: 'Acme' };
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
     const facts = buildAnchoringFacts(profile, offer);
 
     const text = `Je suis disponible pour un début de contrat en ${currentYear} ou en ${nextYear}.`;
@@ -159,7 +172,11 @@ describe('checkAnchoring', () => {
       experiences: [makeExperience({ company: 'Northwind' })],
       skills: [makeSkill({ name: 'Traders', category: 'tool' })],
     });
-    const offer = { title: 'Analyste', company: 'Chinook' };
+    const offer = {
+      title: 'Analyste',
+      company: 'Chinook',
+      description: 'Description du poste.',
+    };
     const facts = buildAnchoringFacts(profile, offer);
 
     // « Northwind Traders » n'a jamais figuré ainsi dans le profil : c'est
@@ -167,6 +184,75 @@ describe('checkAnchoring', () => {
     // compétence). checkAnchoring ne peut pas le voir : il ne lève PAS.
     const text =
       "Je rejoindrais avec plaisir Northwind Traders, qui n'a jamais existé en tant que tel.";
+
+    expect(() => checkAnchoring(text, facts)).not.toThrow();
+  });
+
+  // Régression : experience.summary est transmis au LLM comme fait
+  // autorisé par prompt.ts — un nom propre qui n'apparaît QUE dans ce champ
+  // doit donc être reconnu par buildAnchoringFacts, sinon un fait réel du
+  // profil fait échouer l'ancrage à tort.
+  it('un nom propre présent uniquement dans experience.summary compte comme fait connu', () => {
+    const profile = makeProfileDto({
+      experiences: [
+        makeExperience({
+          company: 'Acme',
+          summary:
+            'Dirigé la migration cloud pour Banque Royale avant la clôture du projet.',
+        }),
+      ],
+    });
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer);
+
+    const text =
+      'Mon expérience auprès de Banque Royale illustre ma capacité à mener un projet complexe.';
+
+    expect(() => checkAnchoring(text, facts)).not.toThrow();
+  });
+
+  // Régression : offer.description est transmise au LLM comme matière
+  // autorisée par prompt.ts — une techno ou une entité nommée dans
+  // l'annonce doit donc être reconnue par buildAnchoringFacts, sinon un
+  // fait réel de l'offre fait échouer l'ancrage à tort.
+  it('un nom propre présent uniquement dans offer.description compte comme fait connu', () => {
+    const profile = makeProfileDto();
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description:
+        'Poste au sein d une équipe qui utilise Azure DevOps au quotidien.',
+    };
+    const facts = buildAnchoringFacts(profile, offer);
+
+    const text =
+      'Je maîtrise déjà Azure DevOps, un atout pour rejoindre votre équipe.';
+
+    expect(() => checkAnchoring(text, facts)).not.toThrow();
+  });
+
+  // Limite documentée, pas un oubli (ADR-13 et README : seules les suites
+  // de 2+ mots capitalisés consécutifs sont des candidats). Un nom propre
+  // halluciné d'UN SEUL mot, au milieu d'une phrase, traverse le contrôle
+  // sans jamais être examiné — ce test documente cette limite plutôt que
+  // de la laisser implicite.
+  it('ne détecte pas un nom propre inventé d un seul mot — limite documentée par ADR-13', () => {
+    const profile = makeProfileDto();
+    const offer = {
+      title: 'Ingénieur',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer);
+
+    // « Zorgolax » n'apparaît dans aucun fait connu et n'est pas en début
+    // de phrase : un seul mot capitalisé n'est jamais un candidat, donc
+    // checkAnchoring ne le voit pas et ne lève PAS.
+    const text = "J'ai aussi collaboré avec Zorgolax sur un projet annexe.";
 
     expect(() => checkAnchoring(text, facts)).not.toThrow();
   });

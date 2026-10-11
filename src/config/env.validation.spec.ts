@@ -65,4 +65,28 @@ describe('validateEnv', () => {
 
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
+
+  it('rejette GENERATION_STALE_TIMEOUT_MS trop proche de LLM_TOTAL_BUDGET_MS', () => {
+    expect(() =>
+      validateEnv({
+        DATABASE_URL: 'postgres://user:pass@host:5432/db',
+        JWT_SECRET,
+        NODE_ENV: 'test',
+        LLM_TOTAL_BUDGET_MS: '55000',
+        GENERATION_STALE_TIMEOUT_MS: '60000',
+      }),
+    ).toThrow(/GENERATION_STALE_TIMEOUT_MS/);
+  });
+
+  it('accepte GENERATION_STALE_TIMEOUT_MS avec assez de marge au-dessus de LLM_TOTAL_BUDGET_MS', () => {
+    const env = validateEnv({
+      DATABASE_URL: 'postgres://user:pass@host:5432/db',
+      JWT_SECRET,
+      NODE_ENV: 'test',
+      LLM_TOTAL_BUDGET_MS: '55000',
+      GENERATION_STALE_TIMEOUT_MS: '120000',
+    });
+
+    expect(env.GENERATION_STALE_TIMEOUT_MS).toBe(120_000);
+  });
 });

@@ -138,6 +138,18 @@ that shape the codebase most:
 - **Anthropic (`claude-haiku-4-5` by default) is the LLM provider**, picked pragmatically
   rather than compared exhaustively — a tailored cover letter is a short, undemanding
   generation, not a task that needs the most capable available model.
+- **Document generation runs in-process, with no queue** (2026-10, ADR-13). No Redis in
+  production, no second Render service that would sleep without its own HTTP traffic. The
+  job's state lives only in Postgres, so a restart never loses information — though it can
+  still lose a job in flight, a documented, accepted gap for now.
+- **The anchoring check catches a new proper noun, not an invented company** (2026-10,
+  ADR-13). It compares word by word against a known set (profile + offer), not phrase by
+  phrase, so a recombination of two already-known words (e.g. "Google Cloud" when "Google"
+  and "Cloud" are each independently known) passes. Chosen over exact-phrase matching, which
+  would also reject legitimate recombinations — but the real guarantee is narrower than the
+  check's name suggests. A single-word invented name ("Netflix", "Deloitte") passes too: only
+  runs of 2+ capitalized words are even checked, needed to avoid flagging every ordinary
+  sentence-starting capital.
 
 ## Project structure
 
