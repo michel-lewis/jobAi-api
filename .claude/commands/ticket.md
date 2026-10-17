@@ -20,9 +20,20 @@ dis-le et explique pourquoi — ne la saute pas en silence.
 L'arbre doit être vide et la branche à jour. S'il reste du travail non
 commité d'un autre sujet, arrête-toi : on ne mélange pas deux tickets.
 
-## 1 — Une branche
+## 1 — Une branche, et le ticket passe en cours
 
 `feat/`, `fix/`, `chore/` + un nom court. Jamais de travail sur `main`.
+
+**Si le ticket vient d'une issue, déplace-la tout de suite sur le board :**
+
+```bash
+scripts/board.sh <n> "In Progress"
+```
+
+Dans le même geste que la branche, pas plus tard. Un board mis à jour à la fin ne sert
+à personne : son seul usage est de dire, pendant le travail, ce qui est en cours. Le
+script ne bloque jamais le ticket — si `gh` manque ou que le board est injoignable, il
+avertit et on continue.
 
 ## 2 — La liste des preuves, et le mode
 
@@ -172,6 +183,16 @@ _pourquoi_ et liste comment vérifier à la main.
 **Si le ticket vient d'une issue, la description contient `Closes #<n>`.** C'est ce
 mot-clé qui ferme l'issue à la fusion et la passe en Done sur le projet — rien d'autre
 ne le fait. Sans lui, l'issue reste ouverte et le tableau ment.
+
+**Puis déplace l'issue en revue, aussitôt la PR ouverte :**
+
+```bash
+scripts/board.sh <n> "In Review"
+```
+
+C'est la dernière colonne que tu déplaces. **Le passage en Done est manuel**, fait par
+moi au moment de la fusion : c'est ma décision, pas la tienne, et la voir bouger toute
+seule m'enlèverait le seul moment où je relis vraiment.
 
 ## 12 — La CI verte
 

@@ -125,3 +125,36 @@ by the code it was meant to constrain.
 - Any non-obvious decision is written down; structural ones become an ADR under
   `docs/adr/` (skill `adr`)
 - No secret reached git history
+
+## Git and the board — the flow, not suggestions
+
+One issue, one branch, one PR, one merge. Nothing else touches `main`.
+
+| Moment | Branch / commit | Board |
+| --- | --- | --- |
+| `/ticket <n>` starts | branch cut from an up-to-date `main` | `scripts/board.sh <n> "In Progress"` |
+| Tests written, still failing | red commit, `test(...)`, tests only | unchanged |
+| Implementation | `feat(...)` / `fix(...)` | unchanged |
+| PR opened, body carries `Closes #<n>` | push | `scripts/board.sh <n> "In Review"` |
+| Merge | squash into `main` | **Done — moved by hand, by Lewis** |
+
+Four rules behind that table.
+
+- **The board moves at the moment the work moves**, never at the end. A board updated
+  afterwards is a report; its only use is telling me, while the work runs, what is in
+  flight. Moving it late is the same as not having one.
+- **Done is never automatic.** It is the one column Lewis moves himself, at merge. It is
+  his decision and his last real read of the diff; taking it away would remove the only
+  moment the whole change is looked at as a whole.
+- **`Closes #<n>` is mandatory in the PR body.** Nothing else closes the issue. Without
+  it the issue stays open and the board lies.
+- **The board never blocks the ticket.** `scripts/board.sh` warns and exits 0 when `gh`
+  is missing, unauthenticated, or the project is unreachable. A tracking tool that can
+  stop the work has the priority backwards.
+
+Commits stay Conventional Commits, one concern each, and a `test(...)` commit contains
+test files only — that constraint is what makes the red commit a proof rather than a
+claim. Never rewrite history on a pushed branch; a mistake is fixed by another commit.
+
+Board columns: `Todo`, `In Progress`, `In Review`, `Done`. Setup needs
+`gh auth refresh -s project` once.
