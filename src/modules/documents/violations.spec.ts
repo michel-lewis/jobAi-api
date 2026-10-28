@@ -39,7 +39,10 @@ describe('hasFault', () => {
         category: 'imprecision',
         type: 'paragraph_count',
         found: 2,
-        expected: 3,
+        // Changement de TYPE mécanique requis par l'interface validée
+        // (paragraphCount devient une fourchette) — hasFault ne regarde que
+        // `category`, aucune assertion de comportement ne change.
+        expected: [3, 3],
       },
       {
         category: 'imprecision',

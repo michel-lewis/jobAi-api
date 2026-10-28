@@ -63,9 +63,18 @@ function makeMarketNorm(overrides: Partial<MarketNorm> = {}): MarketNorm {
     language: 'fr',
     verbLadder: FR_VERB_LADDER,
     superlatives: ['exceptionnel', 'unique'],
+    personal: {
+      photo: 'never',
+      dateOfBirth: 'never',
+      maritalStatus: 'never',
+      nationality: 'never',
+      workAuthorization: 'never',
+    },
     letter: {
       lengthRange: [250, 350],
-      paragraphCount: 3,
+      // Changement de TYPE mécanique requis par l'interface validée
+      // (paragraphCount devient une fourchette) — aucune assertion ne change.
+      paragraphCount: [3, 3],
       openingFormula: 'Madame, Monsieur,',
       closingFormula: 'Cordialement,',
       forbiddenFormulas: { standalone: [], embedded: [] },

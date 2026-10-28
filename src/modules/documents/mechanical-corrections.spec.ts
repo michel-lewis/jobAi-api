@@ -49,7 +49,9 @@ function makeExperience(overrides: Partial<ExperienceDto> = {}): ExperienceDto {
 function makeLetterNorm(overrides: Partial<LetterNorm> = {}): LetterNorm {
   return {
     lengthRange: [250, 350],
-    paragraphCount: 3,
+    // Changement de TYPE mécanique requis par l'interface validée
+    // (paragraphCount devient une fourchette) — aucune assertion ne change.
+    paragraphCount: [3, 3],
     openingFormula: 'Madame, Monsieur,',
     closingFormula: 'Cordialement,',
     forbiddenFormulas: {
@@ -90,7 +92,7 @@ describe('applyMechanicalCorrections', () => {
     const letterNorm = makeLetterNorm();
     const rawText = 'Une expérience solide — acquise sur le terrain.';
 
-    const corrected = applyMechanicalCorrections(rawText, letterNorm, []);
+    const corrected = applyMechanicalCorrections(rawText, letterNorm, [], []);
 
     expect(corrected).not.toContain('—');
   });
@@ -106,7 +108,7 @@ describe('applyMechanicalCorrections', () => {
       'Cordialement,',
     ].join('\n');
 
-    const corrected = applyMechanicalCorrections(rawText, letterNorm, []);
+    const corrected = applyMechanicalCorrections(rawText, letterNorm, [], []);
 
     expect(corrected).not.toContain(
       'Je reste à votre disposition pour tout complément d’information.',
@@ -126,7 +128,7 @@ describe('applyMechanicalCorrections', () => {
       'Cordialement,',
     ].join('\n');
 
-    const corrected = applyMechanicalCorrections(rawText, letterNorm, []);
+    const corrected = applyMechanicalCorrections(rawText, letterNorm, [], []);
 
     expect(corrected.toLowerCase()).not.toContain('force de proposition');
   });
@@ -140,7 +142,12 @@ describe('applyMechanicalCorrections', () => {
     const letterNorm = makeLetterNorm();
     const rawText = "J'ai mené une expérience exceptionnelle dans ce poste.";
 
-    const corrected = applyMechanicalCorrections(rawText, letterNorm, allowed);
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      allowed,
+    );
 
     expect(corrected.toLowerCase()).not.toContain('exceptionnel');
   });
@@ -160,9 +167,90 @@ describe('applyMechanicalCorrections', () => {
     const letterNorm = makeLetterNorm();
     const rawText = "J'ai mené une expérience exceptionnelle dans ce poste.";
 
-    const corrected = applyMechanicalCorrections(rawText, letterNorm, allowed);
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      allowed,
+    );
 
     expect(corrected.toLowerCase()).toContain('exceptionnelle');
+  });
+
+  // Correction A (régression) — `removeDisallowedSuperlatives` retire
+  // aujourd'hui n'importe quelle suite de lettres après le radical d'un
+  // superlatif (`\w*` collé, sans frontière de mot), donc « uniquement »,
+  // qui n'est pas une forme accordée de « unique », disparaît entièrement
+  // sous l'effet du filtre. Un seul mot, sans aucun superlatif autorisé,
+  // suffit à exercer le bug : aucune autre branche ne doit intervenir.
+  it('le mot uniquement n est jamais tronqué par le filtre sur le superlatif unique', () => {
+    const letterNorm = makeLetterNorm();
+    const superlatives = ['unique'];
+    const rawText = 'Je travaille uniquement avec des équipes distribuées.';
+
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      [],
+    );
+
+    expect(corrected).toContain('uniquement');
+  });
+
+  // Correction A (régression) — même bug sur « exceptionnellement », qui
+  // n'est pas une forme accordée de « exceptionnel » mais un adverbe
+  // distinct.
+  it('le mot exceptionnellement n est jamais tronqué par le filtre sur le superlatif exceptionnel', () => {
+    const letterNorm = makeLetterNorm();
+    const superlatives = ['exceptionnel'];
+    const rawText = 'Il travaille exceptionnellement bien sous pression.';
+
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      [],
+    );
+
+    expect(corrected).toContain('exceptionnellement');
+  });
+
+  // Correction A (branche inverse) — le retrait réel, lui, doit continuer
+  // de fonctionner : « exceptionnelle » est une forme accordée de
+  // « exceptionnel », elle doit toujours disparaître.
+  it('une expérience exceptionnelle perd bien exceptionnelle quand exceptionnel est un superlatif non autorisé', () => {
+    const letterNorm = makeLetterNorm();
+    const superlatives = ['exceptionnel'];
+    const rawText =
+      'Il a vécu une expérience exceptionnelle dans cette entreprise.';
+
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      [],
+    );
+
+    expect(corrected.toLowerCase()).not.toContain('exceptionnelle');
+  });
+
+  // Correction A (branche inverse) — même exigence pour l'accord pluriel
+  // « exceptionnels ».
+  it('des résultats exceptionnels perdent bien exceptionnels quand exceptionnel est un superlatif non autorisé', () => {
+    const letterNorm = makeLetterNorm();
+    const superlatives = ['exceptionnel'];
+    const rawText =
+      'Nous avons obtenu des résultats exceptionnels ce trimestre.';
+
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      [],
+    );
+
+    expect(corrected.toLowerCase()).not.toContain('exceptionnels');
   });
 });
 
