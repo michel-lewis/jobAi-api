@@ -67,3 +67,39 @@ condition la rouvrir.**
 Un choix de nommage, une préférence de style, une décision qu'un commentaire de
 cinq lignes au bon endroit documente mieux. L'ADR qui raconte l'évident fait
 baisser la crédibilité de ceux qui comptent.
+
+## Avant de rendre : l'auto-relecture
+
+Un ADR rendu sans cette passe coûte trois tours de relecture. Chaque point vient d'un
+défaut réellement trouvé après coup sur l'ADR-14.
+
+**D'abord, les critères d'acceptation.** Avant d'écrire une ligne, note les questions
+auxquelles cet ADR doit répondre, et montre-les. C'est la liste de preuves d'un document :
+la relecture vérifie ces points, pas les 400 lignes.
+
+**Puis, avant de rendre, relis contre ces six règles :**
+
+1. **Chaque justification est vraie.** Une bonne décision adossée à une fausse raison se
+   propage comme une règle, et c'est la règle qui survit. Vérifie-la comme tu vérifies la
+   décision.
+2. **Une décision qui nomme deux sujets a sa donnée atteignable depuis les deux.** Écrire
+   « ceci vaut pour A et pour B » puis ranger la donnée chez A fait un vœu, pas une règle.
+3. **Aucun nombre n'est possédé par deux documents.** Si un autre ADR fixe un budget, un
+   seuil ou un délai, renvoie à lui — ne le redéfinis jamais, même à l'identique.
+4. **Chaque catégorie de défaut a sa correction et son coût.** Une catégorie se décide par
+   ce qu'il faut pour réparer, jamais par la gravité qu'elle évoque : un superlatif de trop
+   sonne grave et se retire en une ligne, un chiffre faux sonne anodin et ne se répare pas
+   sans la source.
+5. **Un repli est le plus strict, jamais une moyenne**, quand le risque est asymétrique.
+   Et un repli n'est pas une valeur réelle choisie par défaut : omettre ne tue pas,
+   deviner peut tuer.
+6. **Rien n'est renvoyé à « plus tard » sans être nommé maintenant.** Une forme qu'un
+   ticket futur devra changer — une signature, un type de retour, une clé — se pose
+   aujourd'hui, vide, avec une ligne disant qu'elle est vide exprès.
+
+**Un coût écrit n'est pas un coût décidé.** Une conséquence qui change ce que l'utilisateur
+reçoit demande un oui ou un non dans la décision, pas une note de bas de page.
+
+**Commite l'ADR avant de demander la relecture.** Un ADR non suivi par git se relit en
+entier à chaque tour ; commité, il se relit en diff. C'est la différence entre 400 lignes
+et 20.

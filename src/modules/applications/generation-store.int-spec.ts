@@ -59,6 +59,8 @@ describe('ApplicationGenerationStore — transitions de statut contre une vraie 
       company: 'Acme',
       location: 'Montréal',
       applyUrl: null,
+      language: 'fr',
+      country: 'CA',
     });
 
     const state = await store.startOrRetry(user.id, offer.id);

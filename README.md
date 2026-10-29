@@ -23,7 +23,6 @@ not a missing feature — see [Design decisions](#design-decisions).
 | Runtime    | Node.js 22 (ESM)                  |
 | Framework  | NestJS + TypeScript               |
 | Database   | PostgreSQL 17 + TypeORM           |
-| Queue      | Redis + BullMQ                    |
 | Validation | Zod                               |
 | Tests      | Vitest, Supertest, Testcontainers |
 | Hosting    | Render                            |
@@ -35,7 +34,7 @@ not a missing feature — see [Design decisions](#design-decisions).
 ```bash
 npm install
 cp .env.example .env          # adjust values if needed
-docker compose up -d          # PostgreSQL + Redis
+docker compose up -d          # PostgreSQL (a Redis container also starts, unused, see ADR-13)
 npm run migration:run
 npm run start:dev
 ```
@@ -176,9 +175,12 @@ src/
 ## Roadmap
 
 - [x] Module architecture and data model
-- [x] Local environment (PostgreSQL, Redis, health checks)
-- [ ] Authentication (JWT, argon2)
-- [ ] Paste a posting → tailored résumé and cover letter, with grounding checks
+- [x] Local environment (PostgreSQL, health checks)
+- [x] Authentication (JWT, argon2)
+- [x] Paste a posting, with its language and country as explicit required fields
+- [x] Cover letter grounded in the profile and localized to the market (ADR-14, ADR-16)
+- [ ] Tailored résumé
+- [ ] Match score and generation threshold
 - [ ] Application dashboard
 - [ ] Posting aggregation from public ATS job-board APIs
 - [ ] Prepared applications handed back to the user

@@ -37,6 +37,10 @@ const nullableHttpUrl = (max: number) =>
  * accentués (jusqu'à 4 octets UTF-8 chacun) restent sous ce plafond et
  * déclenchent le 400 de Zod, pas un 413 d'Express non garanti de
  * traverser ce filtre.
+ *
+ * `language` et `country` sont obligatoires dans la même rupture (ADR-14,
+ * décisions 1 et 2) : posés par l'utilisateur, jamais déduits du texte de
+ * l'offre.
  */
 export const createOfferSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -44,6 +48,11 @@ export const createOfferSchema = z.object({
   company: nullableText(200),
   location: nullableText(200),
   applyUrl: nullableHttpUrl(2000),
+  language: z.enum(['fr', 'en']),
+  country: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{2}$/, { message: 'doit être un code ISO 3166-1 alpha-2' }),
 });
 
 export type CreateOfferDto = z.infer<typeof createOfferSchema>;

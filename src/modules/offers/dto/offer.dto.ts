@@ -1,4 +1,8 @@
-import type { ApplyChannel, OfferSource } from '../entities/offer.entity.js';
+import type {
+  ApplyChannel,
+  OfferLanguage,
+  OfferSource,
+} from '../entities/offer.entity.js';
 
 export interface OfferDto {
   id: string;
@@ -7,6 +11,8 @@ export interface OfferDto {
   title: string;
   company: string | null;
   location: string | null;
+  language: OfferLanguage;
+  country: string;
   description: string;
   applyUrl: string | null;
   applyChannel: ApplyChannel;

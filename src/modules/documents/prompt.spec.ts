@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { buildCoverLetterPrompt } from './prompt.js';
+import { buildCoverLetterPrompt, computeRequestedWordRange } from './prompt.js';
 import type { ProfileDto } from '../profiles/dto/profile.dto.js';
+import { unknownNorm } from './market-norms/unknown-norm.js';
+import { CA_EN_NORM, CA_FR_NORM } from './market-norms/ca-norms.js';
 
 /**
  * Le plus petit ProfileDto valide. Local à ce fichier — voir
@@ -43,10 +45,12 @@ describe('buildCoverLetterPrompt', () => {
     const promptAlice = buildCoverLetterPrompt({
       profile: makeProfileDto({ fullName: 'Alice Zephyrine Dupont' }),
       offer,
+      norm: unknownNorm('fr'),
     });
     const promptBob = buildCoverLetterPrompt({
       profile: makeProfileDto({ fullName: 'Bob Przybylski' }),
       offer,
+      norm: unknownNorm('fr'),
     });
 
     expect(promptAlice).not.toBe(promptBob);
@@ -64,6 +68,7 @@ describe('buildCoverLetterPrompt', () => {
     const promptAlice = buildCoverLetterPrompt({
       profile: makeProfileDto({ fullName: 'Alice Zephyrine Dupont' }),
       offer,
+      norm: unknownNorm('fr'),
     });
 
     expect(promptAlice).toContain('Alice Zephyrine Dupont');
@@ -80,6 +85,7 @@ describe('buildCoverLetterPrompt', () => {
         company: 'Nordique Capital',
         description: 'Description.',
       },
+      norm: unknownNorm('fr'),
     });
 
     expect(prompt).toContain('Analyste de données');
@@ -97,9 +103,101 @@ describe('buildCoverLetterPrompt', () => {
       description: 'Description.',
     };
 
-    const prompt = buildCoverLetterPrompt({ profile, offer });
+    const prompt = buildCoverLetterPrompt({
+      profile,
+      offer,
+      norm: unknownNorm('fr'),
+    });
 
     expect(prompt).toContain('Zyxqvonor');
     expect(prompt).toContain('Qorzimbaluth');
+  });
+
+  // Correction 1 — la norme résolue doit influencer le prompt, pas rester
+  // un paramètre ignoré (ADR-16).
+  it('le prompt d une offre canadienne anglophone contient la formule d ouverture anglaise exacte', () => {
+    const prompt = buildCoverLetterPrompt({
+      profile: makeProfileDto(),
+      offer: {
+        title: 'Développeur Backend',
+        company: 'Acme',
+        description: 'Description du poste.',
+      },
+      norm: CA_EN_NORM,
+    });
+
+    expect(prompt).toContain('Dear Hiring Manager,');
+  });
+
+  it('le prompt d une offre canadienne francophone contient la formule d ouverture française exacte', () => {
+    const prompt = buildCoverLetterPrompt({
+      profile: makeProfileDto(),
+      offer: {
+        title: 'Développeur Backend',
+        company: 'Acme',
+        description: 'Description du poste.',
+      },
+      norm: CA_FR_NORM,
+    });
+
+    expect(prompt).toContain('Madame, Monsieur,');
+  });
+
+  it('le prompt construit avec la norme neutre n impose aucune des deux formules d ouverture connues', () => {
+    const prompt = buildCoverLetterPrompt({
+      profile: makeProfileDto(),
+      offer: {
+        title: 'Développeur Backend',
+        company: 'Acme',
+        description: 'Description du poste.',
+      },
+      norm: unknownNorm('fr'),
+    });
+
+    expect(prompt).not.toContain('Dear Hiring Manager,');
+    expect(prompt).not.toContain('Madame, Monsieur,');
+  });
+
+  it('le prompt mentionne les deux bornes du nombre de paragraphes attendu par la norme', () => {
+    const prompt = buildCoverLetterPrompt({
+      profile: makeProfileDto(),
+      offer: {
+        title: 'Développeur Backend',
+        company: 'Acme',
+        description: 'Description du poste.',
+      },
+      norm: CA_EN_NORM,
+    });
+
+    const [minParagraphs, maxParagraphs] = CA_EN_NORM.letter.paragraphCount;
+    expect(prompt).toContain(String(minParagraphs));
+    expect(prompt).toContain(String(maxParagraphs));
+  });
+});
+
+describe('computeRequestedWordRange', () => {
+  // Correction 1 — la marge demandée vient de ce qu'elle compense, pas d'un
+  // pourcentage fixe : le stub actuel renvoie la fourchette inchangée, ces
+  // trois tests doivent donc échouer tant qu'il n'est pas remplacé.
+  it('avec une fourchette normale ([250, 450]), la fourchette renvoyée est strictement à l intérieur', () => {
+    const [min, max] = computeRequestedWordRange([250, 450]);
+
+    expect(min).toBeGreaterThan(250);
+    expect(max).toBeLessThan(450);
+  });
+
+  it('avec une fourchette large ([150, 600], norme neutre), la fourchette renvoyée reste strictement à l intérieur', () => {
+    const [min, max] = computeRequestedWordRange([150, 600]);
+
+    expect(min).toBeGreaterThan(150);
+    expect(max).toBeLessThan(600);
+  });
+
+  it('avec une fourchette étroite ([300, 320]), la fourchette renvoyée reste strictement à l intérieur et jamais inversée', () => {
+    const [min, max] = computeRequestedWordRange([300, 320]);
+
+    expect(min).toBeGreaterThan(300);
+    expect(max).toBeLessThan(320);
+    expect(min).toBeLessThan(max);
   });
 });

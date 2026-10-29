@@ -2,8 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { log } from '../../common/logging/logger.js';
 import { OffersService } from '../offers/offers.service.js';
-import { DocumentsService } from '../documents/documents.service.js';
-import { AnchorViolationError } from '../documents/anchoring.js';
+import {
+  DocumentsService,
+  DocumentQualityRejectedError,
+  GenerationBlockedError,
+} from '../documents/documents.service.js';
 import {
   LlmMalformedResponseError,
   LlmQuotaExceededError,
@@ -109,16 +112,29 @@ export class ApplicationsService {
           title: offer.title,
           company: offer.company,
           description: offer.description,
+          language: offer.language,
+          country: offer.country,
         },
       });
       await this.store.markSucceeded(applicationId, draft);
     } catch (error) {
-      if (error instanceof AnchorViolationError) {
+      if (error instanceof GenerationBlockedError) {
         log('error', {
           applicationId,
           userId,
-          violations: error.violations,
-          outcome: 'anchor_violation',
+          reason: error.reason,
+          outcome: 'generation_blocked',
+        });
+      } else if (error instanceof DocumentQualityRejectedError) {
+        // Jamais le texte produit ni le contenu d'une violation — seul le
+        // type de chaque violation est journalisé (ADR-16 : le prompt de
+        // correction, lui, ne réexpose déjà ni le profil ni l'offre ; le
+        // journal ne doit pas réintroduire la fuite par un autre chemin).
+        log('error', {
+          applicationId,
+          userId,
+          violationTypes: error.violations.map((violation) => violation.type),
+          outcome: 'document_quality_rejected',
         });
       }
 
@@ -144,8 +160,14 @@ export class ApplicationsService {
   }
 
   private toReadableFailureReason(error: unknown): string {
-    if (error instanceof AnchorViolationError) {
-      return 'Le document généré contenait des informations absentes du profil.';
+    if (error instanceof GenerationBlockedError) {
+      if (error.reason === 'incomplete_profile') {
+        return 'Le profil est insuffisant pour générer un document — ajoute au moins une expérience ou une compétence.';
+      }
+      return "L'offre ne correspond pas suffisamment au profil pour générer un document.";
+    }
+    if (error instanceof DocumentQualityRejectedError) {
+      return 'Le document généré ne respecte pas la qualité attendue pour ce marché.';
     }
     if (error instanceof LlmTimeoutError) {
       return "Le fournisseur n'a pas répondu à temps.";
