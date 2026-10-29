@@ -1,7 +1,10 @@
 # Backlog — Palier 3 : le produit, et l'échelle avec lui
 
-> **État au 11 octobre 2026.** A0, A et B sont livrés et mergés. C est écrit, vérifié en
-> local, pas encore mergé. D, E, F et G sont les tickets suivants, ajoutés le 11 octobre.
+> **État au 28 octobre 2026.** A0, A, B et C sont livrés et mergés. D est implémenté,
+> vérifié en local (unitaires et intégration verts) et sa pull request est ouverte. E, F, G,
+> H, I et J restent à faire. Trois ADR ont été écrits pour D : ADR-14 (langue, marché et
+> grille de qualité), ADR-15 (résidence des données par cellule) et ADR-16 (pipeline de
+> production en quatre étapes).
 >
 > | Ticket | Capacité | État |
 > |---|---|---|
@@ -9,7 +12,7 @@
 > | A | Coller une offre | ✅ mergé (PR #6) |
 > | B | Module `llm` | ✅ mergé (PR #7, #14) |
 > | C | Générer une lettre | ✅ mergé (PR #21) |
-> | D | Qualité et localisation de la lettre | ⏳ ADR-14 et ADR-15 validés, 0 code |
+> | D | Qualité et localisation de la lettre | ⏳ implémenté, PR en revue (ADR-14, ADR-15, ADR-16) |
 > | E | Tableau de bord des candidatures | ⬜ à faire |
 > | F | Le CV adapté | ⬜ après D |
 > | G | L'échelle, pour de vrai | ⬜ à faire |
@@ -17,8 +20,9 @@
 > | I | Noter la qualité du profil | ⬜ ajouté le 17 oct |
 > | J | Score de compatibilité et seuil | ⬜ ajouté le 17 oct |
 >
-> **Ordre recommandé : C → dettes → D → J → E → H → I → F → G.** E est petit et ferme la boucle
-> utilisateur ; D est la plus grosse valeur produit mais demande un ADR ; F dépend de D.
+> **Ordre recommandé : D → J → E → H → I → F → G.** J débloque la sélection des puces
+> reportée par l'ADR-14 (lignes 428-436), parce qu'elle a besoin de l'extraction des
+> exigences de l'annonce ; E est petit et ferme la boucle utilisateur ; F dépend de D.
 
 Huit tickets. **A0 → A → B → C** d'abord, dans cet ordre : B et C ont besoin d'un profil structuré, et C a besoin de B.
 
