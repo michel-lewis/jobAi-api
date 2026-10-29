@@ -458,4 +458,120 @@ describe('checkMarketFormat', () => {
     );
     expect(lengthViolations).toHaveLength(0);
   });
+
+  // Correction R (revue senior) — là où L et N se rencontrent : la
+  // correction L autorise une ligne « Objet : » avant la salutation (cas
+  // HEC Montréal), mais bodyBlocksOf (correction N) ne retirait la
+  // salutation que si elle était le tout premier bloc. Avec un « Objet : »
+  // devant, la salutation n'est plus blocs[0] : ni elle ni l'« Objet : »
+  // ne sont retirés, et les deux sont comptés comme des paragraphes de
+  // corps — une lettre conforme à ce que L autorise explicitement
+  // échouait donc en N. Même fenêtre que `OPENING_FORMULA_WINDOW`,
+  // réutilisée plutôt que dupliquée : les deux contrôles doivent partager
+  // la même définition de « avant le corps ».
+  function wrapWithPreambleOpeningAndClosing(
+    body: string,
+    letterNorm: LetterNorm,
+    preambleBlocks: string[] = [],
+  ): string {
+    return [
+      ...preambleBlocks,
+      letterNorm.openingFormula,
+      body,
+      letterNorm.closingFormula,
+    ].join('\n\n');
+  }
+
+  it.each([3, 4, 5])(
+    '%i paragraphes de corps passent avec une ligne Objet devant la salutation',
+    (bodyCount) => {
+      const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+      const text = wrapWithPreambleOpeningAndClosing(
+        makeBodyParagraphs(bodyCount),
+        letterNorm,
+        ['Objet : Candidature au poste de Développeur'],
+      );
+
+      const violations = checkMarketFormat(text, letterNorm);
+
+      const paragraphViolations = violations.filter(
+        (violation) => violation.type === 'paragraph_count',
+      );
+      expect(paragraphViolations).toHaveLength(0);
+    },
+  );
+
+  it('4 paragraphes de corps passent avec deux lignes devant la salutation (objet puis référence)', () => {
+    const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+    const text = wrapWithPreambleOpeningAndClosing(
+      makeBodyParagraphs(4),
+      letterNorm,
+      ['Objet : Candidature au poste de Développeur', 'Référence : 2026-042'],
+    );
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    const paragraphViolations = violations.filter(
+      (violation) => violation.type === 'paragraph_count',
+    );
+    expect(paragraphViolations).toHaveLength(0);
+  });
+
+  it('6 paragraphes de corps échouent toujours, avec une ligne Objet devant la salutation', () => {
+    const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+    const text = wrapWithPreambleOpeningAndClosing(
+      makeBodyParagraphs(6),
+      letterNorm,
+      ['Objet : Candidature au poste de Développeur'],
+    );
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    expect(violations).toContainEqual(
+      expect.objectContaining({ type: 'paragraph_count', found: 6 }),
+    );
+  });
+
+  it('le compte de mots exclut aussi la ligne Objet : un même corps de 248 mots donne le même found, avec et sans Objet', () => {
+    const letterNorm = makeLetterNorm({
+      lengthRange: [250, 350],
+      paragraphCount: [1, 5],
+    });
+    const body = wordsText(248);
+
+    const withoutObjet = wrapWithOpeningAndClosing(body, letterNorm);
+    const withObjet = wrapWithPreambleOpeningAndClosing(body, letterNorm, [
+      'Objet : Candidature au poste de Développeur',
+    ]);
+
+    const violationsWithout = checkMarketFormat(withoutObjet, letterNorm);
+    const violationsWith = checkMarketFormat(withObjet, letterNorm);
+
+    const lengthWithout = violationsWithout.find((v) => v.type === 'length');
+    const lengthWith = violationsWith.find((v) => v.type === 'length');
+
+    expect(lengthWithout).toEqual(
+      expect.objectContaining({ type: 'length', found: 248 }),
+    );
+    expect(lengthWith).toEqual(
+      expect.objectContaining({ type: 'length', found: 248 }),
+    );
+  });
+
+  it('une salutation trouvée seulement après la fenêtre ne fait jamais passer la lettre', () => {
+    const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+    // Trois blocs de préambule : la salutation tombe au 4e bloc, hors de
+    // la fenêtre de 3 — elle ne doit jamais être reconnue comme ouverture.
+    const text = wrapWithPreambleOpeningAndClosing(
+      makeBodyParagraphs(3),
+      letterNorm,
+      ['Préambule 1.', 'Préambule 2.', 'Préambule 3.'],
+    );
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    expect(violations).toContainEqual(
+      expect.objectContaining({ type: 'opening_formula' }),
+    );
+  });
 });
