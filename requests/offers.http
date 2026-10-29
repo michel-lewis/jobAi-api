@@ -53,7 +53,9 @@ Content-Type: application/json
 
 {
   "title": "Développeuse backend",
-  "description": "Nous cherchons une personne pour renforcer notre équipe."
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "language": "fr",
+  "country": "CA"
 }
 
 ### Titre vide — attendu 400
@@ -63,7 +65,9 @@ Content-Type: application/json
 
 {
   "title": "",
-  "description": "Nous cherchons une personne pour renforcer notre équipe."
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "language": "fr",
+  "country": "CA"
 }
 
 ### applyUrl non http(s) — attendu 400
@@ -74,7 +78,43 @@ Content-Type: application/json
 {
   "title": "Développeuse backend",
   "description": "Nous cherchons une personne pour renforcer notre équipe.",
-  "applyUrl": "ftp://example.com/jobs/42"
+  "applyUrl": "ftp://example.com/jobs/42",
+  "language": "fr",
+  "country": "CA"
+}
+
+### Sans language — attendu 400 (ADR-14, décision 1 : changement cassant, pas une valeur devinée)
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "country": "CA"
+}
+
+### Sans country — attendu 400 (ADR-14, décision 2 : même rupture que language)
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "language": "fr"
+}
+
+### country qui n'est pas un code ISO 3166-1 alpha-2 — attendu 400
+POST {{host}}/offers
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "Développeuse backend",
+  "description": "Nous cherchons une personne pour renforcer notre équipe.",
+  "language": "fr",
+  "country": "Canada"
 }
 
 ### Création — attendu 201
@@ -88,7 +128,9 @@ Content-Type: application/json
   "description": "Nous cherchons une personne pour renforcer notre équipe, 5 ans d'expérience minimum.",
   "company": "Acme Corp",
   "location": "Calgary, AB",
-  "applyUrl": "https://acme.example.com/jobs/42"
+  "applyUrl": "https://acme.example.com/jobs/42",
+  "language": "en",
+  "country": "CA"
 }
 
 ### Lecture de l'offre créée — attendu 200

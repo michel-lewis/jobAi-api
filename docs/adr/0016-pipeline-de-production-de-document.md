@@ -37,15 +37,19 @@ propriétaire de ces chiffres.
    arrive après l'étape 2, qui a déjà dû livrer un texte corrigé. Le score du
    ticket J rejoindra l'étape 0 plus tard, sans changer sa forme.
 1. **Génération** — un seul appel LLM.
-2. **Correction mécanique sans appel** — une fonction pure de trois entrées,
-   pas d'une seule : `(texteBrut, norme, superlatifsAutorisés)`. Les
-   transformations déterministes de la catégorie « corrigeable sans appel » de
-   l'ADR-14 — tirets cadratins, formules interdites constituant leur propre
-   phrase, superlatifs absents de la source — s'appliquent sur `texteBrut`,
-   mais aucune des trois ne lit la même entrée : le tiret cadratin ne demande
-   rien d'autre, la formule interdite demande `norme` (la liste change par
-   langue), le superlatif demande `superlatifsAutorisés` calculé à l'étape 0.
-   Aucun appel LLM.
+2. **Correction mécanique sans appel** — une fonction pure de quatre entrées,
+   pas d'une seule : `(texteBrut, norme, superlatifs, superlatifsAutorisés)`.
+   Les transformations déterministes de la catégorie « corrigeable sans
+   appel » de l'ADR-14 — tirets cadratins, formules interdites constituant
+   leur propre phrase, superlatifs absents de la source — s'appliquent sur
+   `texteBrut`, mais aucune des trois ne lit la même entrée : le tiret
+   cadratin ne demande rien d'autre, la formule interdite demande `norme`
+   (la liste change par langue), le superlatif demande deux choses
+   distinctes — `superlatifs`, le catalogue complet du marché, pour
+   reconnaître qu'un mot du texte produit EST un candidat à vérifier, et
+   `superlatifsAutorisés` calculé à l'étape 0, pour savoir lequel de ces
+   candidats garder. Le sous-ensemble autorisé seul ne suffit pas : il dit
+   quoi garder, jamais quoi chercher. Aucun appel LLM.
 3. **Deux vérificateurs indépendants** — faits (ancrage et reformulation,
    décision 5 de l'ADR-14) et format (conformité à la norme de marché résolue).
    Aucun des deux ne dépend du résultat de l'autre, ce qui laisse l'exécution —
@@ -128,6 +132,28 @@ lettre ne se propage jamais au CV.
 
 ## Conséquences
 
+- **Deux signatures ont changé pendant l'implémentation, après avoir été
+  validées à l'étape 4 — figées ici pour que le ticket F hérite de la
+  bonne, pas celle validée puis dépassée sans accord.** Les deux
+  changements sont justes ; c'est l'interface validée qui était
+  insuffisante, découverte en écrivant le code contre elle.
+  - `applyMechanicalCorrections(rawText: string, letterNorm: LetterNorm,
+superlatives: string[], allowedSuperlatives: string[]): string` —
+    quatre entrées, pas trois. `superlatives` (le catalogue complet du
+    marché) manquait pour reconnaître qu'un mot du texte produit est un
+    candidat superlatif au départ ; `allowedSuperlatives` seul ne porte
+    que lequel garder parmi les candidats déjà reconnus.
+  - `buildAnchoringFacts(profile: ProfileDto, offer: { title, company,
+description }, language: string, verbLadder: string[][]):
+AnchoringFact[]` — `verbLadder` est un paramètre **obligatoire**, sans
+    valeur par défaut. Une version antérieure l'avait optionnelle (défaut
+    vide) pour ne rien casser des appels déjà commités ; un appelant qui
+    l'omettait désactivait alors silencieusement le contrôle de montée en
+    responsabilité, puisque `checkFacts` ne pose jamais de plafond sans
+    au moins un fait `kind: 'verb'` — exactement le bug trouvé en revue
+    senior. Un paramètre dont l'oubli éteint un garde-fou doit être
+    obligatoire : le compilateur doit refuser l'appel, pas le laisser
+    passer avec une liste vide.
 - Le pipeline devient un **contrat partagé** entre la lettre et le CV : un
   correctif à une étape profite aux deux sans duplication — mais une régression
   dans une étape partagée touche les deux à la fois, pas un seul.

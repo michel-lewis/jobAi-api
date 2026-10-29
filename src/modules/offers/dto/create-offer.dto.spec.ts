@@ -12,6 +12,8 @@ function makeValidInput(): Record<string, unknown> {
     company: 'Acme',
     location: 'Montréal',
     applyUrl: 'https://acme.example.com/jobs/42',
+    language: 'fr',
+    country: 'CA',
   };
 }
 
@@ -67,6 +69,46 @@ describe('createOfferSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  // ADR-14, décision 1 : posée à la création, jamais déduite du texte —
+  // changement cassant de POST /offers, dans la même rupture que `country`.
+  it('rejette une offre sans langue', () => {
+    const input = makeValidInput();
+    delete input.language;
+
+    const result = createOfferSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejette une langue qui n est ni fr ni en', () => {
+    const result = createOfferSchema.safeParse({
+      ...makeValidInput(),
+      language: 'de',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  // ADR-14, décision 2 : ISO 3166-1 alpha-2, un format plutôt qu'une
+  // énumération — le schéma valide la forme, pas une liste de codes.
+  it('rejette une offre sans pays', () => {
+    const input = makeValidInput();
+    delete input.country;
+
+    const result = createOfferSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejette un pays qui n est pas un code ISO 3166-1 alpha-2', () => {
+    const result = createOfferSchema.safeParse({
+      ...makeValidInput(),
+      country: 'Canada',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   /**
    * Preuve 12 — côté exécution : même si le client glisse ces trois champs
    * dans le corps de la requête, le document validé ne doit jamais les
@@ -102,6 +144,8 @@ describe('createOfferSchema', () => {
       company: null,
       location: null,
       applyUrl: null,
+      language: 'fr',
+      country: 'CA',
     };
 
     // @ts-expect-error — source n'existe pas sur CreateOfferDto

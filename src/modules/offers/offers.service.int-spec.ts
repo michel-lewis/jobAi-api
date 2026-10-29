@@ -78,6 +78,8 @@ describe('OffersService — visibilité, tri et pagination', () => {
         title,
         company: null,
         location: null,
+        language: 'en',
+        country: 'CA',
         description: 'Description',
         applyUrl: null,
         applyChannel: 'manual_only',

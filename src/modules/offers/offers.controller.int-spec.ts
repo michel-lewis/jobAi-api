@@ -38,6 +38,8 @@ function makeCreateOfferBody(overrides: Record<string, unknown> = {}) {
     company: 'Acme',
     location: 'Montréal',
     applyUrl: 'https://acme.example.com/jobs/42',
+    language: 'fr',
+    country: 'CA',
     ...overrides,
   };
 }
@@ -63,6 +65,8 @@ async function insertPublicOffer(api: TestApp, title: string): Promise<string> {
       title,
       company: null,
       location: null,
+      language: 'en',
+      country: 'CA',
       description: 'Description',
       applyUrl: null,
       applyChannel: 'generic_llm',
@@ -115,6 +119,8 @@ describe('POST /offers, GET /offers/:id, GET /offers', () => {
       title: 'Ingénieur backend',
       company: 'Acme',
       location: 'Montréal',
+      language: 'fr',
+      country: 'CA',
       description: 'Nous cherchons une personne pour renforcer notre équipe.',
       applyUrl: 'https://acme.example.com/jobs/42',
       applyChannel: 'manual_only',
@@ -151,6 +157,35 @@ describe('POST /offers, GET /offers/:id, GET /offers', () => {
       .post('/offers')
       .set('Authorization', `Bearer ${alice.token}`)
       .send(makeCreateOfferBody({ title: '' }));
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('VALIDATION_FAILED');
+  });
+
+  // ADR-14, décisions 1 et 2 : changement cassant sur deux champs dans la
+  // même rupture — un client qui n'envoie ni l'un ni l'autre voit sa
+  // requête rejetée, pas acceptée avec une valeur devinée.
+  it('un POST sans language renvoie 400 VALIDATION_FAILED', async () => {
+    const body = makeCreateOfferBody();
+    delete (body as Record<string, unknown>).language;
+
+    const response = await request(api.server)
+      .post('/offers')
+      .set('Authorization', `Bearer ${alice.token}`)
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('un POST sans country renvoie 400 VALIDATION_FAILED', async () => {
+    const body = makeCreateOfferBody();
+    delete (body as Record<string, unknown>).country;
+
+    const response = await request(api.server)
+      .post('/offers')
+      .set('Authorization', `Bearer ${alice.token}`)
+      .send(body);
 
     expect(response.status).toBe(400);
     expect(response.body.code).toBe('VALIDATION_FAILED');

@@ -98,6 +98,16 @@ lettre comme sur le CV »), les loger sous une seule des deux forcerait l'autre
 branche par type de document : `letter` (fourchette de longueur, paragraphes,
 formules d'ouverture/clôture) et `cv`.
 
+**`personal: PersonalPolicy` se déclare aussi à la racine, et se remplit dès ce
+ticket — contrairement à `cv`.** Photo, date de naissance, état civil,
+nationalité, autorisation de travail : chaque champ vaut `'never'`,
+`'optional'` ou `'expected'`. `cv` n'a pas de contenu aujourd'hui parce que rien
+ne le consomme avant le ticket F ; `personal` est différent, la recherche
+existe déjà et ne dépend d'aucun pipeline CV pour avoir un sens — la retenir
+jusqu'au ticket F serait forcer le port à changer de forme deux fois pour la
+même raison qu'on vient d'éviter pour `cv`. Non consommé par le pipeline lettre
+d'aujourd'hui (aucun contrôle ADR-16 ne le lit), mais déjà vrai, déjà typé.
+
 **`cv` est déclaré dès ce ticket, et volontairement vide.** Les exceptions déjà
 écrites plus haut — l'absence de photo pour l'Afrique du Sud, le NYSC pour le
 Nigeria, la ligne de certifications pour le Ghana — sont des faits de CV que
@@ -110,10 +120,26 @@ existe pour éviter : poser la forme maintenant, même vide, évite exactement �
 de sens : ce n'est plus le résultat d'une analyse de texte ratée, puisqu'il n'y
 a plus d'analyse — c'est la norme utilisée quand ni la famille ni aucune
 exception pays ne couvrent encore la combinaison `country + language` d'une
-offre, avec une norme neutre documentée (fourchette de longueur large, pas de
-formule d'ouverture/clôture spécifique à un marché réel) et un niveau de
-confiance `neutral` — pas un refus de générer, puisqu'ajouter une famille ou une
-exception reste un commit, pas une opération immédiate.
+offre, avec un niveau de confiance `neutral` — pas un refus de générer, puisqu'
+ajouter une famille ou une exception reste un commit, pas une opération
+immédiate.
+
+**« Le repli le plus strict » n'est pas une règle uniforme sur `unknown` — elle
+ne s'applique qu'aux champs dont le risque est asymétrique.** Un champ est à
+risque asymétrique quand l'inclure peut faire écarter la candidature alors que
+l'omettre ne le peut jamais : photo, date de naissance, nationalité,
+autorisation de travail. Pour ces champs, `unknown.personal` prend le plus
+strict — tout à `'never'` — parce que deviner faux dans le sens « expected »
+coûte une candidature, deviner faux dans le sens « never » ne coûte qu'une
+mention absente. `unknown.letter` reste permissif (fourchette de longueur
+large, pas de formule d'ouverture/clôture spécifique à un marché réel) parce
+que la longueur et la structure n'ont pas cette asymétrie — une fourchette
+étroite serait elle-même un marché réel (montréalais ou parisien), pas un
+repli neutre : resserrer « par prudence » réintroduirait exactement l'erreur
+que cette ADR vient de corriger. `unknown.cv` suivra la règle stricte au
+ticket F, pour les mêmes raisons que `personal` : les champs de CV qu'il
+portera (photo, références, format de date) sont du même genre à risque
+asymétrique.
 
 **3a. Les critères objectifs ne sont pas tous de même nature — un fait inventé est
 une faute, un écart de longueur est une imprécision, un tiret cadratin ou une
@@ -392,6 +418,22 @@ Une acceptation silencieuse, c'est le défaut qu'aucune décision n'empêcherait
   vide ne doit pas le corriger en silence ni le lire comme du travail oublié :
   c'est le ticket F qui le remplit, précisément parce que poser la forme du
   port avant d'avoir le contenu évite de changer son type de retour plus tard.
+- **`MarketNorm.personal` est rempli dès ce ticket, mais non consommé par le
+  pipeline lettre.** Aucune étape de l'ADR-16 ne le lit aujourd'hui — il
+  attend le CV (ticket F), seul document où photo/date de naissance/état
+  civil/nationalité ont un sens. Une relecture future qui le trouverait
+  inutilisé ne doit pas le lire comme du code mort à retirer : la recherche
+  qu'il porte (par famille, verrouillée par un test de donnée par famille)
+  est le travail coûteux, le brancher au CV est la partie bon marché.
+- **La sélection des puces d'expérience pertinentes pour l'offre n'est pas
+  traitée par ce ticket.** Le prompt transmet aujourd'hui toutes les puces de
+  chaque expérience, sans les choisir par rapport à CETTE offre — le manque
+  n°5 du ticket original. Choisir suppose de savoir quelles exigences
+  l'annonce porte, ce que seule l'extraction structurée du ticket J produit ;
+  sans elle, « pertinent » n'a aucune définition vérifiable, et le trancher
+  ici reviendrait à demander au modèle de choisir — l'inverse de « sélectionner,
+  jamais réécrire », qui doit rester un calcul, pas un jugement. Une issue
+  dédiée, liée au ticket J, porte ce travail séparément.
 - **Un document peut désormais être refusé avant toute génération.** Les
   rejets décrits plus haut (ancrage, reformulation en 5, format hors
   tolérance) supposent tous qu'au moins un appel LLM a déjà eu lieu. Le pré-vol

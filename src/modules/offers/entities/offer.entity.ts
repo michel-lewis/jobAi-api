@@ -23,6 +23,10 @@ export const APPLY_CHANNELS = [
 ] as const;
 export type ApplyChannel = (typeof APPLY_CHANNELS)[number];
 
+/** ADR-14, décision 1 : posée par l'utilisateur à la création, jamais déduite du texte. */
+export const OFFER_LANGUAGES = ['fr', 'en'] as const;
+export type OfferLanguage = (typeof OFFER_LANGUAGES)[number];
+
 /**
  * Énumérations en text + CHECK plutôt qu'en ENUM natif Postgres (ADR-06) :
  * ajouter une plateforme supportée arrivera plusieurs fois, et faire évoluer
@@ -35,6 +39,10 @@ export type ApplyChannel = (typeof APPLY_CHANNELS)[number];
   'chk_offers_apply_channel',
   `"apply_channel" IN ('greenhouse', 'lever', 'generic_llm', 'manual_only')`,
 )
+@Check('chk_offers_language', `"language" IN ('fr', 'en')`)
+// ISO 3166-1 alpha-2 (ADR-14, décision 2) : un format, pas une énumération
+// de ~250 codes — le CHECK valide la forme, pas la liste.
+@Check('chk_offers_country', `"country" ~ '^[A-Z]{2}$'`)
 @Index('idx_offers_apply_channel', ['applyChannel'])
 export class Offer {
   @PrimaryGeneratedColumn('uuid')
@@ -62,6 +70,21 @@ export class Offer {
 
   @Column({ type: 'text', nullable: true })
   location: string | null;
+
+  /**
+   * ADR-14, décision 1 : posée à la création, jamais déduite du texte.
+   * Toutes les lettres générées pour cette offre utilisent cette langue.
+   */
+  @Column({ type: 'text' })
+  language: OfferLanguage;
+
+  /**
+   * ADR-14, décision 2 : ISO 3166-1 alpha-2. Le marché est `country +
+   * language`, sans analyse de texte — `deriveMarket` depuis `location`
+   * a été retirée de la décision.
+   */
+  @Column({ type: 'text' })
+  country: string;
 
   /** Le corps de l'offre — entrée de l'extraction LLM. Jamais tronqué. */
   @Column({ type: 'text' })

@@ -2,6 +2,7 @@ import { InitialSchema1790664971345 } from './1790664971345-InitialSchema.js';
 import { StructuredProfile1791366226406 } from './1791366226406-StructuredProfile.js';
 import { LlmDailyQuota1791517351328 } from './1791517351328-LlmDailyQuota.js';
 import { ApplicationGenerationState1791674034069 } from './1791674034069-ApplicationGenerationState.js';
+import { OfferLanguageAndCountry1791850000000 } from './1791850000000-OfferLanguageAndCountry.js';
 
 /**
  * Migrations déclarées explicitement, dans l'ordre. Le glob
@@ -16,4 +17,5 @@ export const migrations = [
   StructuredProfile1791366226406,
   LlmDailyQuota1791517351328,
   ApplicationGenerationState1791674034069,
+  OfferLanguageAndCountry1791850000000,
 ];

@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+/**
+ * Nombre total d'appels à `generateText` par lettre, premier essai compris
+ * (ADR-14, décision 3a) — une seule relance de format au plus. Constante de
+ * code, pas une variable d'environnement : rien dans l'ADR n'en fait un
+ * réglage d'exploitation.
+ */
+export const FORMAT_MAX_ATTEMPTS = 2;
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -37,17 +45,24 @@ const envSchema = z
     LLM_TOTAL_BUDGET_MS: z.coerce.number().int().positive().default(55_000),
     LLM_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
     LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
-    LLM_DAILY_QUOTA_PER_USER: z.coerce.number().int().positive().default(20),
+    // 40, pas 20 : FORMAT_MAX_ATTEMPTS (ADR-14, décision 3a) double la
+    // consommation de quota par lettre dans le cas courant. La limite
+    // promettait 20 lettres par jour à l'utilisateur, pas 20 appels LLM —
+    // la laisser à 20 aurait fait chuter ce nombre à 10 sans qu'aucune
+    // décision ne l'ait choisi.
+    LLM_DAILY_QUOTA_PER_USER: z.coerce.number().int().positive().default(40),
     LLM_RETRY_BACKOFF_MS: z.coerce.number().int().nonnegative().default(500),
     // Un travail 'draft' plus vieux que ça (depuis generationStartedAt, pas
     // createdAt) est lu comme échoué par GET /applications/:id — ADR-13.
-    // Largement au-dessus de LLM_TOTAL_BUDGET_MS pour ne jamais périmer un
-    // travail qui progresse encore normalement.
+    // 150 000, pas 120 000 : FORMAT_MAX_ATTEMPTS (2) multiplie le temps LLM
+    // pur consommé par lettre, pas seulement le quota (ADR-14, décision
+    // 3a) — 40s de marge réelle au-delà du pire cas LLM pur
+    // (2 x LLM_TOTAL_BUDGET_MS), assez pour le temps non-LLM.
     GENERATION_STALE_TIMEOUT_MS: z.coerce
       .number()
       .int()
       .positive()
-      .default(120_000),
+      .default(150_000),
   })
   .refine(
     (env) =>
@@ -63,14 +78,15 @@ const envSchema = z
   })
   .refine(
     (env) =>
-      env.GENERATION_STALE_TIMEOUT_MS >= env.LLM_TOTAL_BUDGET_MS + 10_000,
+      env.GENERATION_STALE_TIMEOUT_MS >=
+      FORMAT_MAX_ATTEMPTS * env.LLM_TOTAL_BUDGET_MS + 10_000,
     {
       message:
-        'GENERATION_STALE_TIMEOUT_MS must stay well above LLM_TOTAL_BUDGET_MS ' +
-        '(at least 10s of margin) — otherwise a job still legitimately in ' +
-        'flight gets marked failed while it is still running, and a later ' +
-        'retry can be silently overwritten by that stale job finally ' +
-        'completing (ADR-13)',
+        'GENERATION_STALE_TIMEOUT_MS must stay well above ' +
+        'FORMAT_MAX_ATTEMPTS * LLM_TOTAL_BUDGET_MS (at least 10s of margin) ' +
+        '— otherwise a job still legitimately in flight gets marked failed ' +
+        'while it is still running, and a later retry can be silently ' +
+        'overwritten by that stale job finally completing (ADR-13, ADR-14)',
     },
   );
 
