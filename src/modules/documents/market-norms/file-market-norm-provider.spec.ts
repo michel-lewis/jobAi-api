@@ -47,4 +47,31 @@ describe('FileMarketNormProvider', () => {
       workAuthorization: 'never',
     });
   });
+
+  // Correction P (revue senior) — CA_FR_NORM cite HEC Montréal et Michael
+  // Page Canada, deux sources qui donnent explicitement un nombre de
+  // paragraphes pour ce marché : 'verified' tient.
+  it('la norme canadienne francophone reste confidence verified', () => {
+    const provider = new FileMarketNormProvider();
+
+    const norm = provider.resolveNorm({ country: 'CA', language: 'fr' });
+
+    expect(norm.meta.confidence).toBe('verified');
+  });
+
+  // Correction P — CA_EN_NORM citait York University seule tout en
+  // affirmant 'verified', alors que York ne donne ni nombre de
+  // paragraphes ni nombre de mots : ces deux chiffres viennent en réalité
+  // de sources britanniques (National Careers Service, Prospects), un
+  // marché différent. 'inherited' plutôt que 'verified', puisque ces
+  // chiffres précis ne sont pas vérifiés pour l'Amérique du Nord
+  // anglophone — exactement la distinction que confidence existe pour
+  // porter.
+  it('la norme canadienne anglophone devient confidence inherited, sa fourchette de paragraphes venant d une autre famille', () => {
+    const provider = new FileMarketNormProvider();
+
+    const norm = provider.resolveNorm({ country: 'CA', language: 'en' });
+
+    expect(norm.meta.confidence).toBe('inherited');
+  });
 });

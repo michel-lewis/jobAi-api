@@ -356,4 +356,106 @@ describe('checkMarketFormat', () => {
     );
     expect(embeddedViolations).toHaveLength(1);
   });
+
+  // Correction N (revue senior) — paragraphsOf comptait la salutation et la
+  // clôture comme des paragraphes à part entière, donc une lettre à 3, 4 ou
+  // 5 paragraphes DE CORPS (exactement ce que demande le prompt, ADR-14)
+  // apparaissait comme 5, 6 ou 7 blocs — hors de [3, 5] deux fois sur trois.
+  // Les sources citées (HEC Montréal, Michael Page Canada) parlent de
+  // paragraphes de corps, jamais de blocs incluant l'ouverture et la
+  // clôture.
+  function makeBodyParagraphs(count: number): string {
+    return Array.from(
+      { length: count },
+      (_, i) => `Paragraphe de corps numéro ${i + 1}.`,
+    ).join('\n\n');
+  }
+
+  function wrapWithOpeningAndClosing(
+    body: string,
+    letterNorm: LetterNorm,
+  ): string {
+    return [letterNorm.openingFormula, body, letterNorm.closingFormula].join(
+      '\n\n',
+    );
+  }
+
+  it.each([3, 4, 5])(
+    '%i paragraphes de corps, salutation et clôture comprises, ne déclenchent aucune violation paragraph_count',
+    (bodyCount) => {
+      const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+      const text = wrapWithOpeningAndClosing(
+        makeBodyParagraphs(bodyCount),
+        letterNorm,
+      );
+
+      const violations = checkMarketFormat(text, letterNorm);
+
+      const paragraphViolations = violations.filter(
+        (violation) => violation.type === 'paragraph_count',
+      );
+      expect(paragraphViolations).toHaveLength(0);
+    },
+  );
+
+  it('2 paragraphes de corps, salutation et clôture comprises, échoue avec found:2 (pas found:4)', () => {
+    const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+    const text = wrapWithOpeningAndClosing(makeBodyParagraphs(2), letterNorm);
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    expect(violations).toContainEqual(
+      expect.objectContaining({ type: 'paragraph_count', found: 2 }),
+    );
+  });
+
+  it('6 paragraphes de corps, salutation et clôture comprises, échoue avec found:6 (pas found:8)', () => {
+    const letterNorm = makeLetterNorm({ paragraphCount: [3, 5] });
+    const text = wrapWithOpeningAndClosing(makeBodyParagraphs(6), letterNorm);
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    expect(violations).toContainEqual(
+      expect.objectContaining({ type: 'paragraph_count', found: 6 }),
+    );
+  });
+
+  it('une lettre sans salutation ni clôture (norme neutre) compte toujours ses paragraphes de corps correctement', () => {
+    const letterNorm = makeLetterNorm({
+      paragraphCount: [3, 5],
+      openingFormula: null,
+      closingFormula: null,
+    });
+    const text = makeBodyParagraphs(3);
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    const paragraphViolations = violations.filter(
+      (violation) => violation.type === 'paragraph_count',
+    );
+    expect(paragraphViolations).toHaveLength(0);
+  });
+
+  // Correction Q (revue senior) — countWords additionnait aussi la
+  // salutation et la clôture, donc la fourchette réellement laissée au
+  // corps était plus étroite que celle stockée dans la norme. Un corps à
+  // la borne haute exacte de la fourchette devient hors fourchette dès
+  // qu'on y ajoute la salutation et la clôture, si elles ne sont pas
+  // exclues avant de compter — exactement le même défaut qu'en N, dans la
+  // même fonction utilitaire.
+  it('le compte de mots exclut la salutation et la clôture : un corps à la borne haute exacte reste conforme une fois habillé', () => {
+    const letterNorm = makeLetterNorm({
+      lengthRange: [250, 350],
+      paragraphCount: [1, 5],
+    });
+    const body = wordsText(350);
+    const text = wrapWithOpeningAndClosing(body, letterNorm);
+
+    const violations = checkMarketFormat(text, letterNorm);
+
+    const lengthViolations = violations.filter(
+      (violation) => violation.type === 'length',
+    );
+    expect(lengthViolations).toHaveLength(0);
+  });
 });

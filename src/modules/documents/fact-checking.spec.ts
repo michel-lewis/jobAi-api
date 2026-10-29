@@ -387,4 +387,98 @@ describe('buildAnchoringFacts + checkFacts', () => {
       }),
     );
   });
+
+  // Correction O (revue senior) — experienceDurationFacts ne produit
+  // jamais que des durées en mois (voir normalizeDuration), donc une
+  // phrase de disponibilité en jours ou en semaines — recommandée par HEC
+  // Montréal, la source citée pour ce marché — n'a jamais de fait connu
+  // de son unité à comparer, et tombait en faute à tort. Passe-droit
+  // assumé, même raisonnement que « verbe absent de l'échelle » : on
+  // sous-détecte plutôt que de rejeter une lettre honnête.
+  it('une disponibilité exprimée en jours n est jamais une faute fact_identity', () => {
+    const profile = makeProfileDto({
+      experiences: [
+        makeExperience({ startDate: '2020-01-01', endDate: '2022-01-01' }),
+      ],
+    });
+    const offer = {
+      title: 'Développeur Backend',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer, 'fr', FR_VERB_LADDER);
+
+    const text = 'Je serai disponible dans 15 jours.';
+    const violations = checkFacts(text, facts, FR_VERB_LADDER);
+
+    expect(
+      violations.filter((violation) => violation.type === 'fact_identity'),
+    ).toHaveLength(0);
+  });
+
+  it('une disponibilité exprimée en semaines n est jamais une faute fact_identity', () => {
+    const profile = makeProfileDto({
+      experiences: [
+        makeExperience({ startDate: '2020-01-01', endDate: '2022-01-01' }),
+      ],
+    });
+    const offer = {
+      title: 'Développeur Backend',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer, 'fr', FR_VERB_LADDER);
+
+    const text = 'Je peux commencer sous 2 semaines.';
+    const violations = checkFacts(text, facts, FR_VERB_LADDER);
+
+    expect(
+      violations.filter((violation) => violation.type === 'fact_identity'),
+    ).toHaveLength(0);
+  });
+
+  it('une durée en mois reste une faute quand le profil porte deux ans, même avec le passe-droit sur les semaines et les jours', () => {
+    const profile = makeProfileDto({
+      experiences: [
+        makeExperience({ startDate: '2020-01-01', endDate: '2022-01-01' }),
+      ],
+    });
+    const offer = {
+      title: 'Développeur Backend',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer, 'fr', FR_VERB_LADDER);
+
+    const text = 'Mes 2 mois chez Acme me servent ici.';
+    const violations = checkFacts(text, facts, FR_VERB_LADDER);
+
+    expect(violations).toContainEqual(
+      expect.objectContaining({
+        category: 'fault',
+        type: 'fact_identity',
+      }),
+    );
+  });
+
+  it('une durée en années reste valide quand le profil porte deux ans', () => {
+    const profile = makeProfileDto({
+      experiences: [
+        makeExperience({ startDate: '2020-01-01', endDate: '2022-01-01' }),
+      ],
+    });
+    const offer = {
+      title: 'Développeur Backend',
+      company: 'Acme',
+      description: 'Description du poste.',
+    };
+    const facts = buildAnchoringFacts(profile, offer, 'fr', FR_VERB_LADDER);
+
+    const text = 'Mes 2 ans chez Acme me servent ici.';
+    const violations = checkFacts(text, facts, FR_VERB_LADDER);
+
+    expect(
+      violations.filter((violation) => violation.type === 'fact_identity'),
+    ).toHaveLength(0);
+  });
 });
