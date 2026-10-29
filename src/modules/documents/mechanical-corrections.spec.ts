@@ -252,6 +252,25 @@ describe('applyMechanicalCorrections', () => {
 
     expect(corrected.toLowerCase()).not.toContain('exceptionnels');
   });
+
+  // Régression (revue senior) — un superlatif retiré en tout début de ligne
+  // n'a aucune espace devant lui à consommer ; l'ancien motif ne consommait
+  // que l'espace de devant et laissait une espace résiduelle en tête de
+  // ligne derrière lui.
+  it('un superlatif retiré en tout début de ligne ne laisse jamais une espace résiduelle en tête de ligne', () => {
+    const letterNorm = makeLetterNorm();
+    const superlatives = ['exceptionnel'];
+    const rawText = 'Exceptionnel projet, mené à bien cette année.';
+
+    const corrected = applyMechanicalCorrections(
+      rawText,
+      letterNorm,
+      superlatives,
+      [],
+    );
+
+    expect(corrected.startsWith(' ')).toBe(false);
+  });
 });
 
 describe('computeAllowedSuperlatives', () => {
