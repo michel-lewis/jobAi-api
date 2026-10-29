@@ -30,8 +30,12 @@ function fillerWords(count: number, offset = 0): string {
 }
 
 /**
- * Lettre conforme à `norm` : ouverture, un paragraphe de remplissage,
- * clôture — 3 blocs séparés par une ligne vide, dans `lengthRange`.
+ * Lettre conforme à `norm` : ouverture, TROIS paragraphes de corps,
+ * clôture — dans `paragraphCount` autant que dans `lengthRange`.
+ * Correction N (revue senior) : un seul paragraphe de corps, même avec
+ * l'ouverture et la clôture comptées à part, ne tombe plus dans [3, 5]
+ * depuis que `checkMarketFormat` ne compte plus la salutation ni la
+ * clôture comme des paragraphes — il en faut vraiment trois.
  */
 function buildConformantLetter(
   norm: {
@@ -39,9 +43,15 @@ function buildConformantLetter(
   },
   wordCount: number,
 ): string {
+  const third = Math.floor(wordCount / 3);
+  const bodyParagraphs = [
+    fillerWords(third, 0),
+    fillerWords(third, third),
+    fillerWords(wordCount - 2 * third, third * 2),
+  ];
   return [
     norm.letter.openingFormula,
-    fillerWords(wordCount),
+    ...bodyParagraphs,
     norm.letter.closingFormula,
   ].join('\n\n');
 }
@@ -82,11 +92,22 @@ function makeNonEmptyProfileDto(
   };
 }
 
+/**
+ * Conforme à CA_FR_NORM (toutes les offres de ce fichier utilisent
+ * language:'fr', country:'CA') — depuis que le pipeline réel vérifie le
+ * format (ADR-16), une phrase isolée comme avant déclenche systématiquement
+ * une imprécision de longueur/paragraphes/formules, puis un rejet au bout
+ * de FORMAT_MAX_ATTEMPTS. Ces doubles ne testent pas la qualité du texte,
+ * seulement la mécanique de relance/concurrence : il leur faut un texte
+ * qui passe les vérificateurs pour l'exercer.
+ */
+const CONFORMANT_FR_TEXT = buildConformantLetter(CA_FR_NORM, 300);
+
 /** Toujours une réponse exploitable, déterministe, sans mot inventé. */
 class AlwaysSucceedsLlm implements LlmPort {
   async generateText(_input: GenerateTextInput): Promise<GenerateTextOutput> {
     return {
-      text: 'Je vous écris pour exprimer mon intérêt pour ce poste.',
+      text: CONFORMANT_FR_TEXT,
       inputTokens: 10,
       outputTokens: 20,
       estimatedCostUsd: 0.001,
@@ -108,7 +129,7 @@ class FlakyOnceLlm implements LlmPort {
       throw new LlmRejectedError('Rejet simulé pour le test.');
     }
     return {
-      text: 'Je vous écris pour exprimer mon intérêt pour ce poste.',
+      text: CONFORMANT_FR_TEXT,
       inputTokens: 10,
       outputTokens: 20,
       estimatedCostUsd: 0.001,
@@ -135,7 +156,7 @@ class CountingLlm implements LlmPort {
   async generateText(_input: GenerateTextInput): Promise<GenerateTextOutput> {
     this.calls += 1;
     return {
-      text: 'Je vous écris pour exprimer mon intérêt pour ce poste.',
+      text: CONFORMANT_FR_TEXT,
       inputTokens: 10,
       outputTokens: 20,
       estimatedCostUsd: 0.001,
@@ -349,6 +370,7 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
     controllable.setStrategy(flaky);
 
     const user = await makeUser('retry');
+    await profiles.replace(user.id, 1, makeNonEmptyProfileDto());
     const offer = await offers.create(user.id, {
       title: 'Poste',
       description: 'Description du poste.',
@@ -387,6 +409,7 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
     controllable.setStrategy(new NeverResolvesLlm());
 
     const user = await makeUser('stale');
+    await profiles.replace(user.id, 1, makeNonEmptyProfileDto());
     const offer = await offers.create(user.id, {
       title: 'Poste',
       description: 'Description du poste.',
@@ -440,6 +463,7 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
     controllable.setStrategy(counting);
 
     const user = await makeUser('concurrent');
+    await profiles.replace(user.id, 1, makeNonEmptyProfileDto());
     const offer = await offers.create(user.id, {
       title: 'Poste',
       description: 'Description du poste.',
@@ -478,6 +502,7 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
     controllable.setStrategy(new NeverResolvesLlm());
 
     const user = await makeUser('stale-retry');
+    await profiles.replace(user.id, 1, makeNonEmptyProfileDto());
     const offer = await offers.create(user.id, {
       title: 'Poste',
       description: 'Description du poste.',
@@ -633,10 +658,13 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
   // dans le document final (correction mécanique, câblée par la route).
   it('un tiret cadratin produit par le LLM ne survit jamais dans le document final', async () => {
     const words = Array.from({ length: 300 }, (_, i) => `word${i}`);
-    const filler = `${words.slice(0, 50).join(' ')} — ${words.slice(50).join(' ')}`;
+    // Trois paragraphes de corps (correction N) — un seul ne tombe plus
+    // dans [3, 5].
     const text = [
       CA_EN_NORM.letter.openingFormula,
-      filler,
+      `${words.slice(0, 50).join(' ')} — ${words.slice(50, 100).join(' ')}`,
+      words.slice(100, 200).join(' '),
+      words.slice(200, 300).join(' '),
       CA_EN_NORM.letter.closingFormula,
     ].join('\n\n');
     const fixedLlm = new FixedTextLlm(text);
@@ -673,10 +701,13 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
   // correction mécanique (superlatifsAutorisés câblé par la route).
   it('un superlatif déjà présent dans le profil survit à la correction mécanique du document final', async () => {
     const words = Array.from({ length: 298 }, (_, i) => `word${i}`);
-    const filler = `${words.slice(0, 50).join(' ')} exceptional ${words.slice(50).join(' ')}`;
+    // Trois paragraphes de corps (correction N) — un seul ne tombe plus
+    // dans [3, 5].
     const text = [
       CA_EN_NORM.letter.openingFormula,
-      filler,
+      `${words.slice(0, 50).join(' ')} exceptional ${words.slice(50, 100).join(' ')}`,
+      words.slice(100, 199).join(' '),
+      words.slice(199, 298).join(' '),
       CA_EN_NORM.letter.closingFormula,
     ].join('\n\n');
     const fixedLlm = new FixedTextLlm(text);
@@ -719,10 +750,13 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
   // retiré mécaniquement du document final.
   it('un superlatif absent du profil et de l offre est retiré mécaniquement du document final', async () => {
     const words = Array.from({ length: 298 }, (_, i) => `word${i}`);
-    const filler = `${words.slice(0, 50).join(' ')} exceptional ${words.slice(50).join(' ')}`;
+    // Trois paragraphes de corps (correction N) — un seul ne tombe plus
+    // dans [3, 5].
     const text = [
       CA_EN_NORM.letter.openingFormula,
-      filler,
+      `${words.slice(0, 50).join(' ')} exceptional ${words.slice(50, 100).join(' ')}`,
+      words.slice(100, 199).join(' '),
+      words.slice(199, 298).join(' '),
       CA_EN_NORM.letter.closingFormula,
     ].join('\n\n');
     const fixedLlm = new FixedTextLlm(text);
@@ -808,8 +842,21 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
 
   // Correction C — ça ne fuit pas, côté journal : aucune trace de log ne
   // contient le texte produit par le LLM.
-  it('aucune trace de log ne contient le texte produit par le LLM pendant toute la génération', async () => {
-    const text = buildConformantLetter(CA_EN_NORM, 300);
+  // Scénario qui déclenche réellement une écriture de log (la faute de fait
+  // ci-dessous) plutôt qu'une lettre conforme : sur le chemin de succès,
+  // `runGeneration` n'écrit aucun log applicatif, donc ce test serait
+  // vacueusement vert sans jamais exercer le seul endroit du code qui
+  // journalise quoi que ce soit sur cette génération (le catch de
+  // `runGeneration`) — revue senior, découvert en vérifiant par mutation
+  // que ce test tombe bien au rouge quand on casse ce qu'il protège.
+  it('aucune trace de log ne contient le texte produit par le LLM, y compris sur le chemin de rejet qui journalise', async () => {
+    const words = Array.from({ length: 300 }, (_, i) => `word${i}`);
+    words.splice(50, 0, 'Zorblex', 'Dynamics');
+    const text = [
+      CA_EN_NORM.letter.openingFormula,
+      words.join(' '),
+      CA_EN_NORM.letter.closingFormula,
+    ].join('\n\n');
     const fixedLlm = new FixedTextLlm(text);
     controllable.setStrategy(fixedLlm);
 
@@ -837,7 +884,7 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
       await vi.waitFor(
         async () => {
           const state = await applications.findOne(user.id, created.id);
-          expect(['generated', 'generation_failed']).toContain(state.status);
+          expect(state.status).toBe('generation_failed');
         },
         { timeout: 10_000 },
       );
@@ -846,8 +893,11 @@ describe('ApplicationsService — orchestration contre une vraie base', () => {
         ...logSpy.mock.calls,
         ...errorSpy.mock.calls,
       ].flat();
+      expect(capturedArgs.length).toBeGreaterThan(0);
       const leaked = capturedArgs.some(
-        (arg) => typeof arg === 'string' && arg.includes('word137'),
+        (arg) =>
+          typeof arg === 'string' &&
+          (arg.includes('word137') || arg.includes('Zorblex Dynamics')),
       );
       expect(leaked).toBe(false);
     } finally {

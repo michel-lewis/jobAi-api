@@ -13,7 +13,7 @@ import {
 } from '../llm/llm.port.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import type { PutProfileDto } from '../profiles/dto/put-profile.dto.js';
-import { CA_EN_NORM } from '../documents/market-norms/ca-norms.js';
+import { CA_EN_NORM, CA_FR_NORM } from '../documents/market-norms/ca-norms.js';
 
 const PASSWORD = 'motdepasse123';
 
@@ -72,7 +72,21 @@ class GatedLlm implements LlmPort {
   async generateText(_input: GenerateTextInput): Promise<GenerateTextOutput> {
     await this.gate;
     return {
-      text: 'Je vous écris pour exprimer mon intérêt pour ce poste.',
+      // Conforme à CA_FR_NORM (makeCreateOfferBody par défaut : language:
+      // 'fr', country: 'CA') — depuis que le pipeline vérifie le format
+      // réel (ADR-16), une phrase isolée déclenche un tour de correction
+      // puis un rejet ; ce double ne teste pas la qualité du texte, mais
+      // l'état intermédiaire 'draft' entre le 202 et la fin de génération.
+      // Trois paragraphes de corps (correction N) — un seul ne tombe plus
+      // dans [3, 5] depuis que la salutation et la clôture ne comptent
+      // plus comme des paragraphes.
+      text: [
+        CA_FR_NORM.letter.openingFormula,
+        Array.from({ length: 100 }, (_, i) => `mot${i}`).join(' '),
+        Array.from({ length: 100 }, (_, i) => `mot${100 + i}`).join(' '),
+        Array.from({ length: 100 }, (_, i) => `mot${200 + i}`).join(' '),
+        CA_FR_NORM.letter.closingFormula,
+      ].join('\n\n'),
       inputTokens: 10,
       outputTokens: 20,
       estimatedCostUsd: 0.001,
@@ -140,18 +154,27 @@ class SequentialResponseLlm implements LlmPort {
  * exact et vérifiable, aucun mot capitalisé — jamais de faux positif
  * d'ancrage sur le remplissage lui-même.
  */
-function fillerWords(count: number): string {
-  return Array.from({ length: count }, (_, i) => `word${i}`).join(' ');
+function fillerWords(count: number, offset = 0): string {
+  return Array.from({ length: count }, (_, i) => `word${offset + i}`).join(' ');
 }
 
 /**
- * Lettre conforme à CA_EN_NORM : ouverture, un paragraphe de remplissage,
- * clôture — 3 blocs séparés par une ligne vide, dans lengthRange.
+ * Lettre conforme à CA_EN_NORM : ouverture, TROIS paragraphes de corps,
+ * clôture. Correction N (revue senior) : un seul paragraphe de corps ne
+ * tombe plus dans [3, 5] depuis que `checkMarketFormat` ne compte plus la
+ * salutation ni la clôture comme des paragraphes — il en faut vraiment
+ * trois.
  */
 function buildConformantLetter(wordCount: number): string {
+  const third = Math.floor(wordCount / 3);
+  const bodyParagraphs = [
+    fillerWords(third, 0),
+    fillerWords(third, third),
+    fillerWords(wordCount - 2 * third, third * 2),
+  ];
   return [
     CA_EN_NORM.letter.openingFormula,
-    fillerWords(wordCount),
+    ...bodyParagraphs,
     CA_EN_NORM.letter.closingFormula,
   ].join('\n\n');
 }
@@ -205,6 +228,11 @@ describe('POST /applications, GET /applications/:id', () => {
     });
     alice = await registerAndLogin(api, 'alice@example.com');
     bob = await registerAndLogin(api, 'bob@example.com');
+    // Profil non vide : depuis ADR-16, le pré-vol bloque toute génération
+    // pour un profil sans expérience ni compétence — le test "202" ci-dessous
+    // attend un vrai 'generated', pas un blocage immédiat.
+    const profilesService = api.app.get(ProfilesService);
+    await profilesService.replace(alice.userId, 1, makeNonEmptyProfileDto());
   }, 180_000);
 
   afterAll(async () => {
